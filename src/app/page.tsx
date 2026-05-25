@@ -59,8 +59,8 @@ export default function Home() {
   const [fotoPlato, setFotoPlato] = useState("");
   const [ganancia, setGanancia] = useState(50);
   const [ingredientesPlato, setIngredientesPlato] = useState<IngredientePlato[]>([]);
+  const [busquedasPorFila, setBusquedasPorFila] = useState<{[key: number]: string}>({});
   const [porciones, setPorciones] = useState(1);
-  const [busquedaIngPlato, setBusquedaIngPlato] = useState("");
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -132,6 +132,9 @@ export default function Home() {
   const borrarIngredienteDePlato = (i: number) => {
     if (ingredientesPlato.length === 1) return;
     setIngredientesPlato(ingredientesPlato.filter((_, idx) => idx!== i));
+    const nuevasBusquedas = {...busquedasPorFila};
+    delete nuevasBusquedas[i];
+    setBusquedasPorFila(nuevasBusquedas);
   };
 
   const crearOActualizarPlato = () => {
@@ -147,6 +150,7 @@ export default function Home() {
     setGanancia(50);
     setPorciones(1);
     setIngredientesPlato([]);
+    setBusquedasPorFila({});
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -157,6 +161,7 @@ export default function Home() {
     setIngredientesPlato(plato.ingredientes);
     setPorciones(plato.porciones || 1);
     setEditandoId(plato.id);
+    setBusquedasPorFila({});
     const esDulce = esPlatoDulce(plato.nombre);
     setSubTabPlatos(esDulce? 'dulces' : 'salados');
     setTab('platos');
@@ -273,10 +278,6 @@ export default function Home() {
 
   const ingredientesBaseFiltrados = ingredientesBase.filter(ing =>
     ing.nombre.toLowerCase().includes(busquedaIng.toLowerCase())
-  );
-
-  const ingredientesBaseParaSelect = ingredientesBase.filter(ing =>
-    ing.nombre.toLowerCase().includes(busquedaIngPlato.toLowerCase())
   );
 
   const totalPlato = (ings: IngredientePlato[]) => ings.reduce((sum, ingPlato) => sum + calcularPrecioIngrediente(ingPlato), 0);
@@ -409,21 +410,23 @@ export default function Home() {
                   </div>
                 </div>
 
-                <input
-                  placeholder="🔍 Buscar ingrediente para agregar..."
-                  value={busquedaIngPlato}
-                  onChange={e => setBusquedaIngPlato(e.target.value)}
-                  className="bg-slate-900 border-slate-600 p-3 w-full mb-4 rounded-lg outline-none text-white placeholder-slate-500 focus:border-teal-500"
-                  disabled={ingredientesBase.length === 0}
-                />
-
                 <div className="space-y-3 mb-5">
                   {ingredientesPlato.map((ingPlato, i) => {
                     const precio = calcularPrecioIngrediente(ingPlato);
                     return (
                       <div key={i} className="grid grid-cols-1 md:grid-cols-13 gap-2 items-start md:items-center">
+                        <input
+                          type="text"
+                          placeholder="🔍 Buscar ingrediente..."
+                          value={busquedasPorFila[i] || ''}
+                          onChange={e => setBusquedasPorFila({...busquedasPorFila, [i]: e.target.value})}
+                          className="bg-slate-900 border-slate-600 p-2 rounded-lg outline-none text-white placeholder-slate-500 focus:border-teal-500 mb-2 md:col-span-13"
+                          disabled={ingredientesBase.length === 0}
+                        />
                         <select value={ingPlato.ingredienteId} onChange={e => actualizarIngredientePlato(i, "ingredienteId", Number(e.target.value))} className="bg-slate-900 border-slate-600 p-3 md:col-span-6 rounded-lg outline-none text-white focus:border-teal-500" disabled={ingredientesBase.length === 0}>
-                          {ingredientesBaseParaSelect.map(ing => <option key={ing.id} value={ing.id}>{ing.nombre} - ${ing.precioUnitario}/{ing.unidad}</option>)}
+                          {ingredientesBase
+                          .filter(ing => ing.nombre.toLowerCase().includes((busquedasPorFila[i] || '').toLowerCase()))
+                          .map(ing => <option key={ing.id} value={ing.id}>{ing.nombre} - ${ing.precioUnitario}/{ing.unidad}</option>)}
                         </select>
                         <input type="number" step="0.01" placeholder="Cantidad" value={ingPlato.cantidad} onChange={e => actualizarIngredientePlato(i, "cantidad", e.target.value)} className="bg-slate-900 border-slate-600 p-3 md:col-span-4 rounded-lg outline-none text-white focus:border-teal-500" disabled={ingredientesBase.length === 0} />
                         <div className="md:col-span-2 text-left md:text-right"><span className="text-teal-400 font-medium">${precio.toFixed(2)}</span></div>
