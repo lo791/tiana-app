@@ -4,12 +4,13 @@ import Head from "next/head";
 
 type IngredienteBase = { id: number; nombre: string; precioUnitario: number; unidad: string };
 type IngredientePlato = { ingredienteId: number; cantidad: number };
-type Plato = { id: number; nombre: string; foto: string; ganancia: number; ingredientes: IngredientePlato[]; porciones?: number };
+type Plato = { id: number; nombre: string; foto: string; ganancia: number; ingredientes: IngredientePlato[]; porciones?: number; unidadesPorVenta?: number };
 type ItemPedidoForm = { platoId: number; cantidad: number };
 type ItemPedidoSnapshot = {
   platoId: number;
   nombrePlato: string;
   cantidad: number;
+  unidadesPorVenta: number;
   costoUnitario: number;
   precioVentaUnitario: number;
   ganancia: number;
@@ -61,6 +62,7 @@ export default function Home() {
   const [ingredientesPlato, setIngredientesPlato] = useState<IngredientePlato[]>([]);
   const [busqueda, setBusqueda] = useState("");
   const [porciones, setPorciones] = useState(1);
+  const [unidadesPorVenta, setUnidadesPorVenta] = useState(1);
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -146,16 +148,18 @@ export default function Home() {
 
   const crearOActualizarPlato = () => {
     if (!nombrePlato || ingredientesPlato.length === 0) return;
+    const unidadesVentaFinal = unidadesPorVenta || 1;
     if (editandoId) {
-      setPlatos(platos.map(p => p.id === editandoId? {...p, nombre: nombrePlato, foto: fotoPlato, ganancia, ingredientes: ingredientesPlato, porciones } : p));
+      setPlatos(platos.map(p => p.id === editandoId? {...p, nombre: nombrePlato, foto: fotoPlato, ganancia, ingredientes: ingredientesPlato, porciones, unidadesPorVenta: unidadesVentaFinal } : p));
       setEditandoId(null);
     } else {
-      setPlatos([...platos, { id: Date.now(), nombre: nombrePlato, foto: fotoPlato, ganancia, ingredientes: ingredientesPlato, porciones }]);
+      setPlatos([...platos, { id: Date.now(), nombre: nombrePlato, foto: fotoPlato, ganancia, ingredientes: ingredientesPlato, porciones, unidadesPorVenta: unidadesVentaFinal }]);
     }
     setNombrePlato("");
     setFotoPlato("");
     setGanancia(50);
     setPorciones(1);
+    setUnidadesPorVenta(1);
     setIngredientesPlato([]);
     setBusqueda("");
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -167,6 +171,7 @@ export default function Home() {
     setGanancia(plato.ganancia);
     setIngredientesPlato(plato.ingredientes);
     setPorciones(plato.porciones || 1);
+    setUnidadesPorVenta(plato.unidadesPorVenta || 1);
     setEditandoId(plato.id);
     setBusqueda("");
     const esDulce = esPlatoDulce(plato.nombre);
@@ -210,14 +215,16 @@ export default function Home() {
       const plato = platos.find(p => p.id === item.platoId);
       if (!plato) throw new Error("Plato no encontrado");
 
-      const costoUnit = totalPlato(plato.ingredientes);
+      const unidadesVenta = plato.unidadesPorVenta || 1;
+      const costoUnit = totalPlato(plato.ingredientes) / (plato.porciones || 1) * unidadesVenta;
       const precioUnit = precioVenta(costoUnit, plato.ganancia);
 
       const ingSnapshot = plato.ingredientes.map(ingPlato => {
         const ingBase = getIngrediente(ingPlato.ingredienteId);
+        const cantidadPorUnidadVenta = (ingPlato.cantidad / (plato.porciones || 1)) * unidadesVenta;
         return {
           nombre: ingBase?.nombre || "",
-          cantidad: ingPlato.cantidad,
+          cantidad: cantidadPorUnidadVenta,
           unidad: ingBase?.unidad || "",
           precioUnitario: ingBase?.precioUnitario || 0
         };
@@ -227,6 +234,7 @@ export default function Home() {
         platoId: plato.id,
         nombrePlato: plato.nombre,
         cantidad: item.cantidad,
+        unidadesPorVenta: unidadesVenta,
         costoUnitario: costoUnit,
         precioVentaUnitario: precioUnit,
         ganancia: plato.ganancia,
@@ -288,7 +296,7 @@ export default function Home() {
   );
 
   const ingredientesSugeridos = busqueda
-  ? ingredientesBase.filter(ing => ing.nombre.toLowerCase().includes(busqueda.toLowerCase())).slice(0, 8)
+? ingredientesBase.filter(ing => ing.nombre.toLowerCase().includes(busqueda.toLowerCase())).slice(0, 8)
     : [];
 
   const totalPlato = (ings: IngredientePlato[]) => ings.reduce((sum, ingPlato) => sum + calcularPrecioIngrediente(ingPlato), 0);
@@ -410,14 +418,19 @@ export default function Home() {
 
                 {fotoPlato && <img src={fotoPlato} alt="preview" className="w-full h-48 object-cover rounded-lg mb-5 border-slate-700" />}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                   <div>
                     <label className="text-slate-300 font-medium mb-2 block">Margen de ganancia: {ganancia}%</label>
                     <input type="range" min="0" max="200" value={ganancia} onChange={e => setGanancia(Number(e.target.value))} className="w-full accent-teal-500" disabled={ingredientesBase.length === 0} />
                   </div>
                   <div>
-                    <label className="text-slate-300 font-medium mb-2 block">¿Para cuántas porciones es la receta?</label>
+                    <label className="text-slate-300 font-medium mb-2 block">Porciones receta</label>
                     <input type="number" min="1" value={porciones} onChange={e => setPorciones(Number(e.target.value))} className="bg-slate-900 border-slate-600 p-3 w-full rounded-lg outline-none text-white focus:border-teal-500" disabled={ingredientesBase.length === 0} />
+                  </div>
+                  <div>
+                    <label className="text-slate-300 font-medium mb-2 block">Unidades por venta</label>
+                    <input type="number" min="1" value={unidadesPorVenta} onChange={e => setUnidadesPorVenta(Number(e.target.value))} className="bg-slate-900 border-slate-600 p-3 w-full rounded-lg outline-none text-white focus:border-teal-500" disabled={ingredientesBase.length === 0} />
+                    <p className="text-slate-500 text-xs mt-1">Ej: grisines = 10, prepizza = 1</p>
                   </div>
                 </div>
 
@@ -474,11 +487,13 @@ export default function Home() {
                 {ingredientesPlato.length > 0 && porciones > 0 && (() => {
                   const costoTotal = totalPlato(ingredientesPlato);
                   const costoPorc = costoPorcion(costoTotal, porciones);
-                  const ventaPorc = precioVenta(costoPorc, ganancia);
+                  const costoVenta = costoPorc * (unidadesPorVenta || 1);
+                  const ventaPorc = precioVenta(costoVenta, ganancia);
                   return (
                     <div className="bg-teal-900/30 border-teal-700 rounded-lg p-4 mb-5 space-y-1">
                       <p className="text-teal-300 text-sm">Costo total receta: <span className="font-bold">${costoTotal.toFixed(2)}</span></p>
-                      <p className="text-teal-300 text-sm">Costo porción: <span className="font-bold">${costoPorc.toFixed(2)}</span></p>
+                      <p className="text-teal-300 text-sm">Costo por unidad: <span className="font-bold">${costoPorc.toFixed(2)}</span></p>
+                      <p className="text-teal-300 text-sm">Costo porción venta: <span className="font-bold">${costoVenta.toFixed(2)}</span></p>
                       <p className="text-emerald-400 text-sm">Precio venta porción: <span className="font-bold text-lg">${ventaPorc.toFixed(0)}</span></p>
                     </div>
                   );
@@ -503,9 +518,10 @@ export default function Home() {
 
                 {platosFiltrados.map((p) => {
                   const costo = totalPlato(p.ingredientes);
-                  const venta = precioVenta(costo, p.ganancia);
-                  const ganancia$ = gananciaPesos(costo, p.ganancia);
-                  const costoPorcionCalculado = costoPorcion(costo, p.porciones || 1);
+                  const costoPorcionCalc = costoPorcion(costo, p.porciones || 1);
+                  const unidadesVenta = p.unidadesPorVenta || 1;
+                  const costoVenta = costoPorcionCalc * unidadesVenta;
+                  const venta = precioVenta(costoVenta, p.ganancia);
                   const abierto = platoAbierto === p.id;
 
                   return (
@@ -519,9 +535,8 @@ export default function Home() {
                           <div>
                             <h3 className="font-semibold text-base md:text-lg text-white">{p.nombre}</h3>
                             <div className="flex flex-col md:flex-row gap-1 md:gap-4 mt-1 text-xs md:text-sm">
-                              <span className="text-slate-400">Costo: <span className="text-white">${costo.toFixed(2)}</span></span>
-                              <span className="text-slate-400">Costo porción: <span className="text-emerald-400">${costoPorcionCalculado.toFixed(2)}</span></span>
-                              <span className="text-slate-400">Venta porción: <span className="text-teal-400 font-bold">${precioVenta(costoPorcionCalculado, p.ganancia).toFixed(0)}</span></span>
+                              <span className="text-slate-400">Costo porción: <span className="text-emerald-400">${costoPorcionCalc.toFixed(2)}</span></span>
+                              <span className="text-slate-400">Venta x{unidadesVenta}: <span className="text-teal-400 font-bold">${venta.toFixed(0)}</span></span>
                             </div>
                           </div>
                         </div>
@@ -540,9 +555,9 @@ export default function Home() {
                             })}
                           </div>
                           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-4 border-t border-slate-700 mb-4">
-                            <div><p className="text-slate-400 text-sm">Costo Total</p><p className="text-base md:text-lg font-semibold text-white">${costo.toFixed(2)}</p></div>
-                            <div><p className="text-slate-400 text-sm">Porciones</p><p className="text-base md:text-lg font-semibold text-white">{p.porciones || 1}</p></div>
-                            <div><p className="text-slate-400 text-sm">Costo Porción</p><p className="text-base md:text-lg font-semibold text-emerald-400">${costoPorcionCalculado.toFixed(2)}</p></div>
+                            <div><p className="text-slate-400 text-sm">Porciones receta</p><p className="text-base md:text-lg font-semibold text-white">{p.porciones || 1}</p></div>
+                            <div><p className="text-slate-400 text-sm">Unidades por venta</p><p className="text-base md:text-lg font-semibold text-white">{unidadesVenta}</p></div>
+                            <div><p className="text-slate-400 text-sm">Costo porción venta</p><p className="text-base md:text-lg font-semibold text-emerald-400">${costoVenta.toFixed(2)}</p></div>
                             <div><p className="text-slate-400 text-sm">Precio Venta</p><p className="text-base md:text-lg font-bold text-teal-400">${venta.toFixed(0)}</p></div>
                           </div>
                           <div className="flex gap-2">
@@ -574,8 +589,11 @@ export default function Home() {
                       <select value={item.platoId} onChange={e => actualizarItemPedido(i, "platoId", Number(e.target.value))} className="bg-slate-900 border-slate-600 p-3 md:col-span-9 rounded-lg outline-none text-white focus:border-teal-500" disabled={platos.length === 0}>
                         {platos.map(plato => {
                           const costo = totalPlato(plato.ingredientes);
-                          const precio = precioVenta(costo, plato.ganancia);
-                          return <option key={plato.id} value={plato.id}>{plato.nombre} - ${precio.toFixed(0)}</option>;
+                          const costoPorcionCalc = costoPorcion(costo, plato.porciones || 1);
+                          const unidadesVenta = plato.unidadesPorVenta || 1;
+                          const costoVenta = costoPorcionCalc * unidadesVenta;
+                          const precio = precioVenta(costoVenta, plato.ganancia);
+                          return <option key={plato.id} value={plato.id}>{plato.nombre} - ${precio.toFixed(0)} x{unidadesVenta}un</option>;
                         })}
                       </select>
                       <input type="number" min="1" value={item.cantidad} onChange={e => actualizarItemPedido(i, "cantidad", e.target.value)} className="bg-slate-900 border-slate-600 p-3 md:col-span-3 rounded-lg outline-none text-white focus:border-teal-500" disabled={platos.length === 0} />
@@ -591,7 +609,10 @@ export default function Home() {
                       const plato = platos.find(p => p.id === item.platoId);
                       if (!plato) return sum;
                       const costo = totalPlato(plato.ingredientes);
-                      const precio = precioVenta(costo, plato.ganancia);
+                      const costoPorcionCalc = costoPorcion(costo, plato.porciones || 1);
+                      const unidadesVenta = plato.unidadesPorVenta || 1;
+                      const costoVenta = costoPorcionCalc * unidadesVenta;
+                      const precio = precioVenta(costoVenta, plato.ganancia);
                       return sum + precio * item.cantidad;
                     }, 0).toFixed(0)}
                   </p>
@@ -629,7 +650,7 @@ export default function Home() {
                             {ped.items.map((item, idx) => (
                               <div key={idx} className="bg-slate-900/50 rounded p-3 border-slate-700">
                                 <div className="flex justify-between mb-2">
-                                  <span className="text-white font-medium">{item.nombrePlato} x{item.cantidad}</span>
+                                  <span className="text-white font-medium">{item.nombrePlato} x{item.cantidad} = {item.cantidad * item.unidadesPorVenta} unidades</span>
                                   <span className="text-teal-400 font-bold">${(item.precioVentaUnitario * item.cantidad).toFixed(0)}</span>
                                 </div>
                                 <div className="space-y-1 ml-2">
@@ -638,7 +659,7 @@ export default function Home() {
                                     const unidadMostrar = (ing.unidad === 'kg' && ing.cantidad < 1)? 'g' : (ing.unidad === 'L' && ing.cantidad < 1)? 'ml' : ing.unidad;
                                     return (
                                       <p key={i} className="text-slate-400 text-xs">
-                                        {ing.nombre}: {cantidadMostrar}{unidadMostrar}
+                                        {ing.nombre}: {cantidadMostrar.toFixed(0)}{unidadMostrar}
                                       </p>
                                     );
                                   })}
