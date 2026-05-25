@@ -3,7 +3,11 @@ import { useState, useEffect, useRef } from "react";
 import Head from "next/head";
 
 type IngredienteBase = { id: number; nombre: string; precioUnitario: number; unidad: string };
-type IngredientePlato = { ingredienteId: number; cantidad: number };
+type IngredientePlato = {
+  tipo: 'base' | 'plato'; // NUEVO: para platos compuestos y boxes
+  id: number; // id del IngredienteBase O id del Plato
+  cantidad: number; // acepta decimales: 0.5, 0.25
+};
 type Plato = { id: number; nombre: string; foto: string; ganancia: number; ingredientes: IngredientePlato[]; porciones?: number; unidadesPorVenta?: number };
 type ItemPedidoForm = { platoId: number; cantidad: number };
 type ItemPedidoSnapshot = {
@@ -61,6 +65,7 @@ export default function Home() {
   const [ganancia, setGanancia] = useState(50);
   const [ingredientesPlato, setIngredientesPlato] = useState<IngredientePlato[]>([]);
   const [busqueda, setBusqueda] = useState("");
+  const [busquedaPlato, setBusquedaPlato] = useState(""); // NUEVO: buscar platos para boxes
   const [porciones, setPorciones] = useState(1);
   const [unidadesPorVenta, setUnidadesPorVenta] = useState(1);
   const [editandoId, setEditandoId] = useState<number | null>(null);
@@ -113,15 +118,45 @@ export default function Home() {
     setEditandoPrecioId(null);
   };
 
-  const agregarIngredienteAPlato = (id: number) => setIngredientesPlato([...ingredientesPlato, { ingredienteId: id, cantidad: 0.2 }]);
+  // NUEVO: función recursiva para calcular costo de platos compuestos y boxes
+  const calcularCostoPlato = (platoId: number, visitados: number[] = []): number => {
+    const plato = platos.find(p => p.id === platoId);
+    if (!plato || visitados.includes(platoId)) return 0; // evita bucles infinitos
+
+    return plato.ingredientes.reduce((sum, ing) => {
+      if (ing.tipo === 'base') {
+        const ingBase = ingredientesBase.find(i => i.id === ing.id);
+        return sum + ing.cantidad * (ingBase?.precioUnitario || 0);
+      } else {
+        // Es otro plato: calculo costo porción y multiplico por cantidad
+        const costoPlatoBase = calcularCostoPlato(ing.id, [...visitados, platoId]);
+        const porcionesBase = platos.find(p => p.id === ing.id)?.porciones || 1;
+        const costoPorcion = porcionesBase > 0? costoPlatoBase / porcionesBase : 0;
+        return sum + costoPorcion * ing.cantidad;
+      }
+    }, 0);
+  };
+
+  const agregarIngredienteBaseAPlato = (id: number) => setIngredientesPlato([...ingredientesPlato, { tipo: 'base', id, cantidad: 0.2 }]);
+  const agregarPlatoAPlato = (id: number) => setIngredientesPlato([...ingredientesPlato, { tipo: 'plato', id, cantidad: 1 }]); // NUEVO: para boxes
 
   const agregarIngredienteBuscado = () => {
     const ingEncontrado = ingredientesBase.find(ing =>
       ing.nombre.toLowerCase().includes(busqueda.toLowerCase())
     );
     if (ingEncontrado) {
-      agregarIngredienteAPlato(ingEncontrado.id);
+      agregarIngredienteBaseAPlato(ingEncontrado.id);
       setBusqueda("");
+    }
+  };
+
+  const agregarPlatoBuscado = () => {
+    const platoEncontrado = platos.filter(p => p.id!== editandoId).find(p => // evita auto-referencia
+      p.nombre.toLowerCase().includes(busquedaPlato.toLowerCase())
+    );
+    if (platoEncontrado) {
+      agregarPlatoAPlato(platoEncontrado.id);
+      setBusquedaPlato("");
     }
   };
 
@@ -162,6 +197,7 @@ export default function Home() {
     setUnidadesPorVenta(1);
     setIngredientesPlato([]);
     setBusqueda("");
+    setBusquedaPlato("");
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -174,6 +210,7 @@ export default function Home() {
     setUnidadesPorVenta(plato.unidadesPorVenta || 1);
     setEditandoId(plato.id);
     setBusqueda("");
+    setBusquedaPlato("");
     const esDulce = esPlatoDulce(plato.nombre);
     setSubTabPlatos(esDulce? 'dulces' : 'salados');
     setTab('platos');
@@ -216,18 +253,32 @@ export default function Home() {
       if (!plato) throw new Error("Plato no encontrado");
 
       const unidadesVenta = plato.unidadesPorVenta || 1;
-      const costoUnit = totalPlato(plato.ingredientes) / (plato.porciones || 1) * unidadesVenta;
+      const costoTotal = calcularCostoPlato(plato.id);
+      const costoUnit = costoTotal / (plato.porciones || 1) * unidadesVenta;
       const precioUnit = precioVenta(costoUnit, plato.ganancia);
 
       const ingSnapshot = plato.ingredientes.map(ingPlato => {
-        const ingBase = getIngrediente(ingPlato.ingredienteId);
-        const cantidadPorUnidadVenta = (ingPlato.cantidad / (plato.porciones || 1)) * unidadesVenta;
-        return {
-          nombre: ingBase?.nombre || "",
-          cantidad: cantidadPorUnidadVenta,
-          unidad: ingBase?.unidad || "",
-          precioUnitario: ingBase?.precioUnitario || 0
-        };
+        if (ingPlato.tipo === 'base') {
+          const ingBase = getIngrediente(ingPlato.id);
+          const cantidadPorUnidadVenta = (ingPlato.cantidad / (plato.porciones || 1)) * unidadesVenta;
+          return {
+            nombre: ingBase?.nombre || "",
+            cantidad: cantidadPorUnidadVenta,
+            unidad: ingBase?.unidad || "",
+            precioUnitario: ingBase?.precioUnitario || 0
+          };
+        } else {
+          // Para platos compuestos mostramos solo el nombre del plato base
+          const platoBase = platos.find(p => p.id === ingPlato.id);
+          const porcionesBase = platoBase?.porciones || 1;
+          const cantidadPorUnidadVenta = (ingPlato.cantidad / porcionesBase) * unidadesVenta;
+          return {
+            nombre: `${platoBase?.nombre || 'Plato'} x${ingPlato.cantidad} porción`,
+            cantidad: cantidadPorUnidadVenta,
+            unidad: 'porción',
+            precioUnitario: 0
+          };
+        }
       });
 
       return {
@@ -265,19 +316,31 @@ export default function Home() {
   const borrarPedido = (id: number) => setPedidos(pedidos.filter(p => p.id!== id));
 
   const getIngrediente = (id: number) => ingredientesBase.find(i => i.id === id);
+
   const calcularPrecioIngrediente = (ingPlato: IngredientePlato) => {
-    const ingBase = getIngrediente(ingPlato.ingredienteId);
-    if (!ingBase) return 0;
-    return ingPlato.cantidad * ingBase.precioUnitario;
+    if (ingPlato.tipo === 'base') {
+      const ingBase = getIngrediente(ingPlato.id);
+      if (!ingBase) return 0;
+      return ingPlato.cantidad * ingBase.precioUnitario;
+    } else {
+      const costoPlatoBase = calcularCostoPlato(ingPlato.id);
+      const porcionesBase = platos.find(p => p.id === ingPlato.id)?.porciones || 1;
+      const costoPorcion = porcionesBase > 0? costoPlatoBase / porcionesBase : 0;
+      return costoPorcion * ingPlato.cantidad;
+    }
   };
 
   const obtenerCantidadParaMostrar = (ingPlato: IngredientePlato) => {
-    const ingBase = getIngrediente(ingPlato.ingredienteId);
-    if (!ingBase) return { cantidad: 0, unidad: '' };
-    if ((ingBase.unidad === 'kg' || ingBase.unidad === 'L') && ingPlato.cantidad < 1) {
-      return { cantidad: ingPlato.cantidad * 1000, unidad: ingBase.unidad === 'kg'? 'g' : 'ml' };
+    if (ingPlato.tipo === 'base') {
+      const ingBase = getIngrediente(ingPlato.id);
+      if (!ingBase) return { cantidad: 0, unidad: '' };
+      if ((ingBase.unidad === 'kg' || ingBase.unidad === 'L') && ingPlato.cantidad < 1) {
+        return { cantidad: ingPlato.cantidad * 1000, unidad: ingBase.unidad === 'kg'? 'g' : 'ml' };
+      }
+      return { cantidad: ingPlato.cantidad, unidad: ingBase.unidad };
+    } else {
+      return { cantidad: ingPlato.cantidad, unidad: 'porción' };
     }
-    return { cantidad: ingPlato.cantidad, unidad: ingBase.unidad };
   };
 
   const esPlatoDulce = (nombre: string) => {
@@ -296,10 +359,18 @@ export default function Home() {
   );
 
   const ingredientesSugeridos = busqueda
-? ingredientesBase.filter(ing => ing.nombre.toLowerCase().includes(busqueda.toLowerCase())).slice(0, 8)
+   ? ingredientesBase.filter(ing => ing.nombre.toLowerCase().includes(busqueda.toLowerCase())).slice(0, 8)
     : [];
 
-  const totalPlato = (ings: IngredientePlato[]) => ings.reduce((sum, ingPlato) => sum + calcularPrecioIngrediente(ingPlato), 0);
+  const platosSugeridos = busquedaPlato
+   ? platos.filter(p => p.id!== editandoId && p.nombre.toLowerCase().includes(busquedaPlato.toLowerCase())).slice(0, 8)
+    : [];
+
+  const totalPlato = (ings: IngredientePlato[], platoId?: number) => {
+    if (platoId) return calcularCostoPlato(platoId);
+    return ings.reduce((sum, ingPlato) => sum + calcularPrecioIngrediente(ingPlato), 0);
+  };
+
   const precioVenta = (costo: number, gan: number) => costo * (1 + gan / 100);
   const gananciaPesos = (costo: number, gan: number) => costo * gan / 100;
   const costoPorcion = (costo: number, porc: number) => porc > 0? costo / porc : 0;
@@ -400,12 +471,12 @@ export default function Home() {
           {tab === 'platos' && (
             <>
               <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg shadow-xl border-slate-700 p-4 md:p-6 mb-6">
-                <h2 className="text-lg md:text-xl font-semibold text-white mb-4 md:mb-6">{editandoId? "Editar Plato" : "Nuevo Plato"}</h2>
+                <h2 className="text-lg md:text-xl font-semibold text-white mb-4 md:mb-6">{editandoId? "Editar Plato/Box" : "Nuevo Plato/Box"}</h2>
                 {ingredientesBase.length === 0 && <div className="bg-amber-900/30 border-amber-700 rounded-lg p-4 mb-4"><p className="text-amber-300 text-sm">Debe cargar ingredientes antes de crear platos</p></div>}
-                <input placeholder="Nombre del plato" value={nombrePlato} onChange={e => setNombrePlato(e.target.value)} className="bg-slate-900 border-slate-600 p-3 w-full mb-4 rounded-lg outline-none text-white placeholder-slate-500 focus:border-teal-500" disabled={ingredientesBase.length === 0} />
+                <input placeholder="Nombre del plato o box" value={nombrePlato} onChange={e => setNombrePlato(e.target.value)} className="bg-slate-900 border-slate-600 p-3 w-full mb-4 rounded-lg outline-none text-white placeholder-slate-500 focus:border-teal-500" disabled={ingredientesBase.length === 0} />
 
                 <div className="mb-4">
-                  <label className="text-slate-300 font-medium mb-2 block">Foto del plato</label>
+                  <label className="text-slate-300 font-medium mb-2 block">Foto del plato/box</label>
                   <input
                     type="file"
                     accept="image/*"
@@ -430,52 +501,103 @@ export default function Home() {
                   <div>
                     <label className="text-slate-300 font-medium mb-2 block">Unidades por venta</label>
                     <input type="number" min="1" value={unidadesPorVenta} onChange={e => setUnidadesPorVenta(Number(e.target.value))} className="bg-slate-900 border-slate-600 p-3 w-full rounded-lg outline-none text-white focus:border-teal-500" disabled={ingredientesBase.length === 0} />
-                    <p className="text-slate-500 text-xs mt-1">Ej: grisines = 10, prepizza = 1</p>
+                    <p className="text-slate-500 text-xs mt-1">Ej: box = 1, grisines = 10</p>
                   </div>
                 </div>
 
-                <div className="mb-4 relative">
-                  <label className="text-slate-300 font-medium mb-2 block">Agregar ingredientes - Escribí y elegí</label>
-                  <input
-                    type="text"
-                    placeholder="🔍 Ej: harina, azúcar, leche..."
-                    value={busqueda}
-                    onChange={e => setBusqueda(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter' && busqueda.trim()) {
-                        e.preventDefault();
-                        agregarIngredienteBuscado();
-                      }
-                    }}
-                    className="bg-slate-900 border-teal-500 p-3 w-full rounded-lg outline-none text-white placeholder-slate-500 focus:border-teal-400"
-                    disabled={ingredientesBase.length === 0}
-                  />
+                <div className="mb-4">
+                  <label className="text-slate-300 font-medium mb-2 block">Agregar ingredientes base</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="🔍 Ej: harina, azúcar, leche..."
+                      value={busqueda}
+                      onChange={e => setBusqueda(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && busqueda.trim()) {
+                          e.preventDefault();
+                          agregarIngredienteBuscado();
+                        }
+                      }}
+                      className="bg-slate-900 border-teal-500 p-3 w-full rounded-lg outline-none text-white placeholder-slate-500 focus:border-teal-400"
+                      disabled={ingredientesBase.length === 0}
+                    />
+                    {ingredientesSugeridos.length > 0 && (
+                      <div className="absolute z-20 w-full mt-1 bg-slate-800 border-slate-600 rounded-lg max-h-60 overflow-y-auto shadow-xl">
+                        {ingredientesSugeridos.map(ing => (
+                          <button
+                            key={ing.id}
+                            type="button"
+                            onClick={() => { agregarIngredienteBaseAPlato(ing.id); setBusqueda('') }}
+                            className="w-full text-left px-4 py-2 hover:bg-slate-700 text-white border-b border-slate-700 last:border-0"
+                          >
+                            <span className="font-medium">{ing.nombre}</span>
+                            <span className="text-slate-400 text-sm ml-2">${ing.precioUnitario}/{ing.unidad}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
 
-                  {ingredientesSugeridos.length > 0 && (
-                    <div className="absolute z-20 w-full mt-1 bg-slate-800 border-slate-600 rounded-lg max-h-60 overflow-y-auto shadow-xl">
-                      {ingredientesSugeridos.map(ing => (
-                        <button
-                          key={ing.id}
-                          type="button"
-                          onClick={() => { agregarIngredienteAPlato(ing.id); setBusqueda('') }}
-                          className="w-full text-left px-4 py-2 hover:bg-slate-700 text-white border-b border-slate-700 last:border-0"
-                        >
-                          <span className="font-medium">{ing.nombre}</span>
-                          <span className="text-slate-400 text-sm ml-2">${ing.precioUnitario}/{ing.unidad}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                {/* NUEVO: Selector de platos para boxes y platos compuestos */}
+                <div className="mb-4">
+                  <label className="text-slate-300 font-medium mb-2 block">Agregar plato base - Para boxes/combos</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="🔍 Ej: Focaccia, Sándwich, Budín..."
+                      value={busquedaPlato}
+                      onChange={e => setBusquedaPlato(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && busquedaPlato.trim()) {
+                          e.preventDefault();
+                          agregarPlatoBuscado();
+                        }
+                      }}
+                      className="bg-slate-900 border-teal-500 p-3 w-full rounded-lg outline-none text-white placeholder-slate-500 focus:border-teal-400"
+                      disabled={platos.length === 0}
+                    />
+                    {platosSugeridos.length > 0 && (
+                      <div className="absolute z-20 w-full mt-1 bg-slate-800 border-slate-600 rounded-lg max-h-60 overflow-y-auto shadow-xl">
+                        {platosSugeridos.map(p => {
+                          const costo = calcularCostoPlato(p.id);
+                          const costoPorc = costoPorcion(costo, p.porciones || 1);
+                          return (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => { agregarPlatoAPlato(p.id); setBusquedaPlato('') }}
+                              className="w-full text-left px-4 py-2 hover:bg-slate-700 text-white border-b border-slate-700 last:border-0"
+                            >
+                              <span className="font-medium">{p.nombre}</span>
+                              <span className="text-slate-400 text-sm ml-2">Costo porción: ${costoPorc.toFixed(2)}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="space-y-3 mb-5">
                   {ingredientesPlato.map((ingPlato, i) => {
                     const precio = calcularPrecioIngrediente(ingPlato);
+                    const nombre = ingPlato.tipo === 'base'
+                     ? getIngrediente(ingPlato.id)?.nombre || 'Ingrediente'
+                      : platos.find(p => p.id === ingPlato.id)?.nombre || 'Plato';
+                    const unidad = ingPlato.tipo === 'base'
+                     ? getIngrediente(ingPlato.id)?.unidad || ''
+                      : 'porción';
+
                     return (
                       <div key={i} className="grid grid-cols-1 md:grid-cols-13 gap-2 items-start md:items-center">
-                        <select value={ingPlato.ingredienteId} onChange={e => actualizarIngredientePlato(i, "ingredienteId", Number(e.target.value))} className="bg-slate-900 border-slate-600 p-3 md:col-span-6 rounded-lg outline-none text-white focus:border-teal-500" disabled={ingredientesBase.length === 0}>
-                          {ingredientesBase.map(ing => <option key={ing.id} value={ing.id}>{ing.nombre} - ${ing.precioUnitario}/{ing.unidad}</option>)}
-                        </select>
+                        <div className="md:col-span-6 bg-slate-900 border-slate-600 p-3 rounded-lg text-white">
+                          <span className={`text-xs px-2 py-1 rounded mr-2 ${ingPlato.tipo === 'base'? 'bg-teal-600' : 'bg-purple-600'}`}>
+                            {ingPlato.tipo === 'base'? 'Ingrediente' : 'Plato'}
+                          </span>
+                          {nombre}
+                        </div>
                         <input type="number" step="0.01" placeholder="Cantidad" value={ingPlato.cantidad} onChange={e => actualizarIngredientePlato(i, "cantidad", e.target.value)} className="bg-slate-900 border-slate-600 p-3 md:col-span-4 rounded-lg outline-none text-white focus:border-teal-500" disabled={ingredientesBase.length === 0} />
                         <div className="md:col-span-2 text-left md:text-right"><span className="text-teal-400 font-medium">${precio.toFixed(2)}</span></div>
                         <button onClick={() => borrarIngredienteDePlato(i)} disabled={ingredientesPlato.length === 1} className="text-red-400 hover:text-red-300 text-sm disabled:opacity-30 mt-2 md:mt-0">Eliminar</button>
@@ -492,7 +614,7 @@ export default function Home() {
                   return (
                     <div className="bg-teal-900/30 border-teal-700 rounded-lg p-4 mb-5 space-y-1">
                       <p className="text-teal-300 text-sm">Costo total receta: <span className="font-bold">${costoTotal.toFixed(2)}</span></p>
-                      <p className="text-teal-300 text-sm">Costo por unidad: <span className="font-bold">${costoPorc.toFixed(2)}</span></p>
+                      <p className="text-teal300 text-sm">Costo por unidad: <span className="font-bold">${costoPorc.toFixed(2)}</span></p>
                       <p className="text-teal-300 text-sm">Costo porción venta: <span className="font-bold">${costoVenta.toFixed(2)}</span></p>
                       <p className="text-emerald-400 text-sm">Precio venta porción: <span className="font-bold text-lg">${ventaPorc.toFixed(0)}</span></p>
                     </div>
@@ -517,7 +639,7 @@ export default function Home() {
                 {platosFiltrados.length === 0 && <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg shadow-xl border-slate-700 p-8 md:p-12 text-center"><p className="text-slate-400">No hay platos {subTabPlatos} cargados</p></div>}
 
                 {platosFiltrados.map((p) => {
-                  const costo = totalPlato(p.ingredientes);
+                  const costo = calcularCostoPlato(p.id);
                   const costoPorcionCalc = costoPorcion(costo, p.porciones || 1);
                   const unidadesVenta = p.unidadesPorVenta || 1;
                   const costoVenta = costoPorcionCalc * unidadesVenta;
@@ -547,11 +669,22 @@ export default function Home() {
                         <div className="px-4 md:px-6 pb-4 md:pb-6">
                           <div className="space-y-2 mb-4 pt-4 border-t border-slate-700">
                             {p.ingredientes.map((ingPlato, i) => {
-                              const ing = getIngrediente(ingPlato.ingredienteId);
-                              if (!ing) return null;
                               const precio = calcularPrecioIngrediente(ingPlato);
                               const { cantidad: mostrarCant, unidad: mostrarUnidad } = obtenerCantidadParaMostrar(ingPlato);
-                              return <div key={i} className="bg-slate-900/50 rounded p-3 flex-col md:flex-row md:justify-between gap-1 text-sm border-slate-700"><span className="text-slate-300">{ing.nombre}</span><span className="text-slate-400">{mostrarCant}{mostrarUnidad} = ${precio.toFixed(2)}</span></div>;
+                              const nombre = ingPlato.tipo === 'base'
+                               ? getIngrediente(ingPlato.id)?.nombre || 'Ingrediente'
+                                : platos.find(pl => pl.id === ingPlato.id)?.nombre || 'Plato';
+                              return (
+                                <div key={i} className="bg-slate-900/50 rounded p-3 flex-col md:flex-row md:justify-between gap-1 text-sm border-slate-700">
+                                  <span className="text-slate-300">
+                                    <span className={`text-xs px-2 py-0.5 rounded mr-2 ${ingPlato.tipo === 'base'? 'bg-teal-600' : 'bg-purple-600'}`}>
+                                      {ingPlato.tipo === 'base'? 'Ing' : 'Plato'}
+                                    </span>
+                                    {nombre}
+                                  </span>
+                                  <span className="text-slate-400">{mostrarCant}{mostrarUnidad} = ${precio.toFixed(2)}</span>
+                                </div>
+                              );
                             })}
                           </div>
                           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-4 border-t border-slate-700 mb-4">
@@ -588,7 +721,7 @@ export default function Home() {
                     <div key={i} className="grid grid-cols-1 md:grid-cols-13 gap-2 items-start md:items-center">
                       <select value={item.platoId} onChange={e => actualizarItemPedido(i, "platoId", Number(e.target.value))} className="bg-slate-900 border-slate-600 p-3 md:col-span-9 rounded-lg outline-none text-white focus:border-teal-500" disabled={platos.length === 0}>
                         {platos.map(plato => {
-                          const costo = totalPlato(plato.ingredientes);
+                          const costo = calcularCostoPlato(plato.id);
                           const costoPorcionCalc = costoPorcion(costo, plato.porciones || 1);
                           const unidadesVenta = plato.unidadesPorVenta || 1;
                           const costoVenta = costoPorcionCalc * unidadesVenta;
@@ -608,7 +741,7 @@ export default function Home() {
                     ${itemsPedido.reduce((sum, item) => {
                       const plato = platos.find(p => p.id === item.platoId);
                       if (!plato) return sum;
-                      const costo = totalPlato(plato.ingredientes);
+                      const costo = calcularCostoPlato(plato.id);
                       const costoPorcionCalc = costoPorcion(costo, plato.porciones || 1);
                       const unidadesVenta = plato.unidadesPorVenta || 1;
                       const costoVenta = costoPorcionCalc * unidadesVenta;
