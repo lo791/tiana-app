@@ -59,7 +59,7 @@ export default function Home() {
   const [fotoPlato, setFotoPlato] = useState("");
   const [ganancia, setGanancia] = useState(50);
   const [ingredientesPlato, setIngredientesPlato] = useState<IngredientePlato[]>([]);
-  const [busquedasPorFila, setBusquedasPorFila] = useState<{[key: number]: string}>({});
+  const [busquedaIngredienteRapida, setBusquedaIngredienteRapida] = useState("");
   const [porciones, setPorciones] = useState(1);
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -113,6 +113,16 @@ export default function Home() {
 
   const agregarIngredienteAPlato = () => setIngredientesPlato([...ingredientesPlato, { ingredienteId: ingredientesBase[0]?.id || 0, cantidad: 0.2 }]);
 
+  const agregarIngredienteRapido = (textoBusqueda: string) => {
+    const ingEncontrado = ingredientesBase.find(ing =>
+      ing.nombre.toLowerCase().includes(textoBusqueda.toLowerCase())
+    );
+    if (ingEncontrado) {
+      setIngredientesPlato([...ingredientesPlato, { ingredienteId: ingEncontrado.id, cantidad: 0.2 }]);
+      setBusquedaIngredienteRapida("");
+    }
+  };
+
   const actualizarIngredientePlato = (i: number, campo: string, valor: any) => {
     const nuevos = [...ingredientesPlato];
     if (campo === "cantidad") {
@@ -132,9 +142,6 @@ export default function Home() {
   const borrarIngredienteDePlato = (i: number) => {
     if (ingredientesPlato.length === 1) return;
     setIngredientesPlato(ingredientesPlato.filter((_, idx) => idx!== i));
-    const nuevasBusquedas = {...busquedasPorFila};
-    delete nuevasBusquedas[i];
-    setBusquedasPorFila(nuevasBusquedas);
   };
 
   const crearOActualizarPlato = () => {
@@ -150,7 +157,7 @@ export default function Home() {
     setGanancia(50);
     setPorciones(1);
     setIngredientesPlato([]);
-    setBusquedasPorFila({});
+    setBusquedaIngredienteRapida("");
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -161,7 +168,7 @@ export default function Home() {
     setIngredientesPlato(plato.ingredientes);
     setPorciones(plato.porciones || 1);
     setEditandoId(plato.id);
-    setBusquedasPorFila({});
+    setBusquedaIngredienteRapida("");
     const esDulce = esPlatoDulce(plato.nombre);
     setSubTabPlatos(esDulce? 'dulces' : 'salados');
     setTab('platos');
@@ -410,23 +417,31 @@ export default function Home() {
                   </div>
                 </div>
 
+                <div className="mb-4">
+                  <label className="text-slate-300 font-medium mb-2 block">Agregar ingredientes rápido - Escribí y apretá Enter</label>
+                  <input
+                    type="text"
+                    placeholder="🔍 Ej: harina, azúcar, leche... Enter para agregar"
+                    value={busquedaIngredienteRapida}
+                    onChange={e => setBusquedaIngredienteRapida(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && busquedaIngredienteRapida.trim()) {
+                        e.preventDefault();
+                        agregarIngredienteRapido(busquedaIngredienteRapida);
+                      }
+                    }}
+                    className="bg-slate-900 border-teal-500 p-3 w-full rounded-lg outline-none text-white placeholder-slate-500 focus:border-teal-400"
+                    disabled={ingredientesBase.length === 0}
+                  />
+                </div>
+
                 <div className="space-y-3 mb-5">
                   {ingredientesPlato.map((ingPlato, i) => {
                     const precio = calcularPrecioIngrediente(ingPlato);
                     return (
                       <div key={i} className="grid grid-cols-1 md:grid-cols-13 gap-2 items-start md:items-center">
-                        <input
-                          type="text"
-                          placeholder="🔍 Buscar ingrediente..."
-                          value={busquedasPorFila[i] || ''}
-                          onChange={e => setBusquedasPorFila({...busquedasPorFila, [i]: e.target.value})}
-                          className="bg-slate-900 border-slate-600 p-2 rounded-lg outline-none text-white placeholder-slate-500 focus:border-teal-500 mb-2 md:col-span-13"
-                          disabled={ingredientesBase.length === 0}
-                        />
                         <select value={ingPlato.ingredienteId} onChange={e => actualizarIngredientePlato(i, "ingredienteId", Number(e.target.value))} className="bg-slate-900 border-slate-600 p-3 md:col-span-6 rounded-lg outline-none text-white focus:border-teal-500" disabled={ingredientesBase.length === 0}>
-                          {ingredientesBase
-                          .filter(ing => ing.nombre.toLowerCase().includes((busquedasPorFila[i] || '').toLowerCase()))
-                          .map(ing => <option key={ing.id} value={ing.id}>{ing.nombre} - ${ing.precioUnitario}/{ing.unidad}</option>)}
+                          {ingredientesBase.map(ing => <option key={ing.id} value={ing.id}>{ing.nombre} - ${ing.precioUnitario}/{ing.unidad}</option>)}
                         </select>
                         <input type="number" step="0.01" placeholder="Cantidad" value={ingPlato.cantidad} onChange={e => actualizarIngredientePlato(i, "cantidad", e.target.value)} className="bg-slate-900 border-slate-600 p-3 md:col-span-4 rounded-lg outline-none text-white focus:border-teal-500" disabled={ingredientesBase.length === 0} />
                         <div className="md:col-span-2 text-left md:text-right"><span className="text-teal-400 font-medium">${precio.toFixed(2)}</span></div>
@@ -435,7 +450,6 @@ export default function Home() {
                     );
                   })}
                 </div>
-                <button onClick={agregarIngredienteAPlato} className="text-teal-400 font-medium mb-5 hover:text-teal-300 disabled:opacity-50" disabled={ingredientesBase.length === 0}>+ Agregar ingrediente</button>
 
                 {ingredientesPlato.length > 0 && porciones > 0 && (
                   <div className="bg-teal-900/30 border-teal-700 rounded-lg p-4 mb-5">
