@@ -4,7 +4,7 @@ import Head from "next/head";
 
 type IngredienteBase = { id: number; nombre: string; precioUnitario: number; unidad: string };
 type IngredientePlato = { ingredienteId: number; cantidad: number };
-type Plato = { id: number; nombre: string; foto: string; ganancia: number; ingredientes: IngredientePlato[] };
+type Plato = { id: number; nombre: string; foto: string; ganancia: number; ingredientes: IngredientePlato[]; porciones?: number };
 type ItemPedidoForm = { platoId: number; cantidad: number };
 type ItemPedidoSnapshot = {
   platoId: number;
@@ -53,11 +53,14 @@ export default function Home() {
   const [unidadIng, setUnidadIng] = useState("kg");
   const [editandoPrecioId, setEditandoPrecioId] = useState<number | null>(null);
   const [precioEditTemp, setPrecioEditTemp] = useState(0);
+  const [busquedaIng, setBusquedaIng] = useState("");
 
   const [nombrePlato, setNombrePlato] = useState("");
   const [fotoPlato, setFotoPlato] = useState("");
   const [ganancia, setGanancia] = useState(50);
   const [ingredientesPlato, setIngredientesPlato] = useState<IngredientePlato[]>([]);
+  const [porciones, setPorciones] = useState(1);
+  const [busquedaIngPlato, setBusquedaIngPlato] = useState("");
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -134,14 +137,15 @@ export default function Home() {
   const crearOActualizarPlato = () => {
     if (!nombrePlato || ingredientesPlato.length === 0) return;
     if (editandoId) {
-      setPlatos(platos.map(p => p.id === editandoId? {...p, nombre: nombrePlato, foto: fotoPlato, ganancia, ingredientes: ingredientesPlato } : p));
+      setPlatos(platos.map(p => p.id === editandoId? {...p, nombre: nombrePlato, foto: fotoPlato, ganancia, ingredientes: ingredientesPlato, porciones } : p));
       setEditandoId(null);
     } else {
-      setPlatos([...platos, { id: Date.now(), nombre: nombrePlato, foto: fotoPlato, ganancia, ingredientes: ingredientesPlato }]);
+      setPlatos([...platos, { id: Date.now(), nombre: nombrePlato, foto: fotoPlato, ganancia, ingredientes: ingredientesPlato, porciones }]);
     }
     setNombrePlato("");
     setFotoPlato("");
     setGanancia(50);
+    setPorciones(1);
     setIngredientesPlato([]);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -151,6 +155,7 @@ export default function Home() {
     setFotoPlato(plato.foto);
     setGanancia(plato.ganancia);
     setIngredientesPlato(plato.ingredientes);
+    setPorciones(plato.porciones || 1);
     setEditandoId(plato.id);
     const esDulce = esPlatoDulce(plato.nombre);
     setSubTabPlatos(esDulce? 'dulces' : 'salados');
@@ -266,9 +271,18 @@ export default function Home() {
     return subTabPlatos === 'dulces'? esDulce :!esDulce;
   });
 
+  const ingredientesBaseFiltrados = ingredientesBase.filter(ing =>
+    ing.nombre.toLowerCase().includes(busquedaIng.toLowerCase())
+  );
+
+  const ingredientesBaseParaSelect = ingredientesBase.filter(ing =>
+    ing.nombre.toLowerCase().includes(busquedaIngPlato.toLowerCase())
+  );
+
   const totalPlato = (ings: IngredientePlato[]) => ings.reduce((sum, ingPlato) => sum + calcularPrecioIngrediente(ingPlato), 0);
   const precioVenta = (costo: number, gan: number) => costo * (1 + gan / 100);
   const gananciaPesos = (costo: number, gan: number) => costo * gan / 100;
+  const costoPorcion = (costo: number, porc: number) => porc > 0? costo / porc : 0;
 
   const gananciaTotal = pedidos.reduce((sum, ped) => sum + (ped.total - ped.costoTotal), 0);
   const costoTotal = pedidos.reduce((sum, ped) => sum + ped.costoTotal, 0);
@@ -304,7 +318,7 @@ export default function Home() {
           {tab === 'ingredientes' && (
             <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg shadow-xl border-slate-700 p-4 md:p-6">
               <h2 className="text-lg md:text-xl font-semibold text-white mb-4 md:mb-6">Gestión de Ingredientes</h2>
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 mb-4">
                 <input placeholder="Nombre del ingrediente" value={nombreIng} onChange={e => setNombreIng(e.target.value)} className="bg-slate-900 border-slate-600 p-3 md:col-span-5 rounded-lg outline-none text-white placeholder-slate-500 focus:border-teal-500" />
                 <div className="relative md:col-span-3">
                   <span className="absolute left-3 top-3 text-slate-500">$</span>
@@ -322,9 +336,17 @@ export default function Home() {
                 </select>
                 <button onClick={agregarIngredienteBase} className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-3 rounded-lg font-bold md:col-span-2 transition text-xl">+</button>
               </div>
+
+              <input
+                placeholder="🔍 Buscar ingrediente..."
+                value={busquedaIng}
+                onChange={e => setBusquedaIng(e.target.value)}
+                className="bg-slate-900 border-slate-600 p-3 w-full mb-4 rounded-lg outline-none text-white placeholder-slate-500 focus:border-teal-500"
+              />
+
               <div className="space-y-2">
-                {ingredientesBase.length === 0 && <p className="text-slate-400 text-center py-8">No hay ingredientes cargados</p>}
-                {ingredientesBase.map(ing => (
+                {ingredientesBaseFiltrados.length === 0 && <p className="text-slate-400 text-center py-8">No hay ingredientes cargados</p>}
+                {ingredientesBaseFiltrados.map(ing => (
                   <div key={ing.id} className="bg-slate-900/50 rounded-lg p-4 flex-col md:flex-row md:justify-between md:items-center gap-2 border-slate-700">
                     <div className="flex-1">
                       <span className="text-white font-medium block">{ing.nombre}</span>
@@ -376,10 +398,24 @@ export default function Home() {
 
                 {fotoPlato && <img src={fotoPlato} alt="preview" className="w-full h-48 object-cover rounded-lg mb-5 border-slate-700" />}
 
-                <div className="mb-6">
-                  <label className="text-slate-300 font-medium mb-2 block">Margen de ganancia: {ganancia}%</label>
-                  <input type="range" min="0" max="200" value={ganancia} onChange={e => setGanancia(Number(e.target.value))} className="w-full accent-teal-500" disabled={ingredientesBase.length === 0} />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                  <div>
+                    <label className="text-slate-300 font-medium mb-2 block">Margen de ganancia: {ganancia}%</label>
+                    <input type="range" min="0" max="200" value={ganancia} onChange={e => setGanancia(Number(e.target.value))} className="w-full accent-teal-500" disabled={ingredientesBase.length === 0} />
+                  </div>
+                  <div>
+                    <label className="text-slate-300 font-medium mb-2 block">¿Para cuántas porciones es la receta?</label>
+                    <input type="number" min="1" value={porciones} onChange={e => setPorciones(Number(e.target.value))} className="bg-slate-900 border-slate-600 p-3 w-full rounded-lg outline-none text-white focus:border-teal-500" disabled={ingredientesBase.length === 0} />
+                  </div>
                 </div>
+
+                <input
+                  placeholder="🔍 Buscar ingrediente para agregar..."
+                  value={busquedaIngPlato}
+                  onChange={e => setBusquedaIngPlato(e.target.value)}
+                  className="bg-slate-900 border-slate-600 p-3 w-full mb-4 rounded-lg outline-none text-white placeholder-slate-500 focus:border-teal-500"
+                  disabled={ingredientesBase.length === 0}
+                />
 
                 <div className="space-y-3 mb-5">
                   {ingredientesPlato.map((ingPlato, i) => {
@@ -387,7 +423,7 @@ export default function Home() {
                     return (
                       <div key={i} className="grid grid-cols-1 md:grid-cols-13 gap-2 items-start md:items-center">
                         <select value={ingPlato.ingredienteId} onChange={e => actualizarIngredientePlato(i, "ingredienteId", Number(e.target.value))} className="bg-slate-900 border-slate-600 p-3 md:col-span-6 rounded-lg outline-none text-white focus:border-teal-500" disabled={ingredientesBase.length === 0}>
-                          {ingredientesBase.map(ing => <option key={ing.id} value={ing.id}>{ing.nombre} - ${ing.precioUnitario}/{ing.unidad}</option>)}
+                          {ingredientesBaseParaSelect.map(ing => <option key={ing.id} value={ing.id}>{ing.nombre} - ${ing.precioUnitario}/{ing.unidad}</option>)}
                         </select>
                         <input type="number" step="0.01" placeholder="Cantidad" value={ingPlato.cantidad} onChange={e => actualizarIngredientePlato(i, "cantidad", e.target.value)} className="bg-slate-900 border-slate-600 p-3 md:col-span-4 rounded-lg outline-none text-white focus:border-teal-500" disabled={ingredientesBase.length === 0} />
                         <div className="md:col-span-2 text-left md:text-right"><span className="text-teal-400 font-medium">${precio.toFixed(2)}</span></div>
@@ -397,6 +433,14 @@ export default function Home() {
                   })}
                 </div>
                 <button onClick={agregarIngredienteAPlato} className="text-teal-400 font-medium mb-5 hover:text-teal-300 disabled:opacity-50" disabled={ingredientesBase.length === 0}>+ Agregar ingrediente</button>
+
+                {ingredientesPlato.length > 0 && porciones > 0 && (
+                  <div className="bg-teal-900/30 border-teal-700 rounded-lg p-4 mb-5">
+                    <p className="text-teal-300 text-sm">Costo total receta: <span className="font-bold">${totalPlato(ingredientesPlato).toFixed(2)}</span></p>
+                    <p className="text-teal-300 text-sm">Costo porción: <span className="font-bold text-lg">${costoPorcion(totalPlato(ingredientesPlato), porciones).toFixed(2)}</span></p>
+                  </div>
+                )}
+
                 <div className="flex flex-col md:flex-row gap-3">
                   <button onClick={crearOActualizarPlato} className="bg-teal-600 hover:bg-teal-700 text-white px-6 py-2 rounded-lg font-medium disabled:opacity-50 transition" disabled={ingredientesBase.length === 0}>
                     {editandoId? "Guardar cambios" : "Crear plato"}
@@ -418,6 +462,7 @@ export default function Home() {
                   const costo = totalPlato(p.ingredientes);
                   const venta = precioVenta(costo, p.ganancia);
                   const ganancia$ = gananciaPesos(costo, p.ganancia);
+                  const costoPorcionCalculado = costoPorcion(costo, p.porciones || 1);
                   const abierto = platoAbierto === p.id;
 
                   return (
@@ -432,6 +477,7 @@ export default function Home() {
                             <h3 className="font-semibold text-base md:text-lg text-white">{p.nombre}</h3>
                             <div className="flex flex-col md:flex-row gap-1 md:gap-4 mt-1 text-xs md:text-sm">
                               <span className="text-slate-400">Costo: <span className="text-white">${costo.toFixed(2)}</span></span>
+                              <span className="text-slate-400">Por porción: <span className="text-emerald-400">${costoPorcionCalculado.toFixed(2)}</span></span>
                               <span className="text-slate-400">Venta: <span className="text-teal-400 font-bold">${venta.toFixed(0)}</span></span>
                             </div>
                           </div>
@@ -450,9 +496,10 @@ export default function Home() {
                               return <div key={i} className="bg-slate-900/50 rounded p-3 flex-col md:flex-row md:justify-between gap-1 text-sm border-slate-700"><span className="text-slate-300">{ing.nombre}</span><span className="text-slate-400">{mostrarCant}{mostrarUnidad} = ${precio.toFixed(2)}</span></div>;
                             })}
                           </div>
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-slate-700 mb-4">
-                            <div><p className="text-slate-400 text-sm">Costo</p><p className="text-base md:text-lg font-semibold text-white">${costo.toFixed(2)}</p></div>
-                            <div><p className="text-slate-400 text-sm">Ganancia</p><p className="text-base md:text-lg font-semibold text-emerald-400">+${ganancia$.toFixed(2)}</p></div>
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-4 border-t border-slate-700 mb-4">
+                            <div><p className="text-slate-400 text-sm">Costo Total</p><p className="text-base md:text-lg font-semibold text-white">${costo.toFixed(2)}</p></div>
+                            <div><p className="text-slate-400 text-sm">Porciones</p><p className="text-base md:text-lg font-semibold text-white">{p.porciones || 1}</p></div>
+                            <div><p className="text-slate-400 text-sm">Costo Porción</p><p className="text-base md:text-lg font-semibold text-emerald-400">${costoPorcionCalculado.toFixed(2)}</p></div>
                             <div><p className="text-slate-400 text-sm">Precio Venta</p><p className="text-base md:text-lg font-bold text-teal-400">${venta.toFixed(0)}</p></div>
                           </div>
                           <div className="flex gap-2">
@@ -528,74 +575,75 @@ export default function Home() {
                         <div className="text-left">
                           <h3 className="font-semibold text-white">{ped.cliente}</h3>
                           <p className="text-slate-400 text-xs md:text-sm mb-3">{ped.direccion} - {ped.telefono}</p>
-                    </div>
-                    <span className={`text-slate-400 transition-transform ${abierto? 'rotate-180' : ''}`}>▼</span>
-                  </button>
-
-                  {abierto && (
-                    <div className="px-4 md:px-6 pb-4 md:pb-6">
-                      <div className="space-y-2 mb-4 pt-4 border-t border-slate-700">
-                        {ped.items.map((item, idx) => (
-                          <div key={idx} className="bg-slate-900/50 rounded p-3 border-slate-700">
-                            <div className="flex justify-between mb-2">
-                              <span className="text-white font-medium">{item.nombrePlato} x{item.cantidad}</span>
-                              <span className="text-teal-400 font-bold">${(item.precioVentaUnitario * item.cantidad).toFixed(0)}</span>
-                            </div>
-                            <div className="space-y-1 ml-2">
-                              {item.ingredientes.map((ing, i) => {
-                                const cantidadMostrar = (ing.unidad === 'kg' || ing.unidad === 'L') && ing.cantidad < 1? ing.cantidad * 1000 : ing.cantidad;
-                                const unidadMostrar = (ing.unidad === 'kg' && ing.cantidad < 1)? 'g' : (ing.unidad === 'L' && ing.cantidad < 1)? 'ml' : ing.unidad;
-                                return (
-                                  <p key={i} className="text-slate-400 text-xs">
-                                    {ing.nombre}: {cantidadMostrar}{unidadMostrar}
-                                  </p>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-slate-700 mb-4">
-                        <div><p className="text-slate-400 text-sm">Costo</p><p className="text-base md:text-lg font-semibold text-white">${ped.costoTotal.toFixed(2)}</p></div>
-                        <div><p className="text-slate-400 text-sm">Ganancia</p><p className="text-base md:text-lg font-semibold text-emerald-400">+${gananciaPed.toFixed(2)}</p></div>
-                        <div><p className="text-slate-400 text-sm">Total Venta</p><p className="text-base md:text-lg font-bold text-teal-400">${ped.total.toFixed(0)}</p></div>
-                      </div>
-                      <button 
-                        onClick={(e) => {e.stopPropagation(); borrarPedido(ped.id)}} 
-                        className="text-red-400 hover:text-red-300 text-sm font-medium"
-                      >
-                        Eliminar pedido
+                          <p className="text-teal-400 font-bold text-lg">${ped.total.toFixed(0)}</p>
+                        </div>
+                        <span className={`text-slate-400 transition-transform ${abierto? 'rotate-180' : ''}`}>▼</span>
                       </button>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </>
-      )}
 
-      {tab === 'estadisticas' && (
-        <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg shadow-xl border-slate-700 p-4 md:p-6">
-          <h2 className="text-lg md:text-xl font-semibold text-white mb-6">Estadísticas</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-slate-900/50 rounded-lg p-4 border-slate-700">
-              <p className="text-slate-400 text-sm">Total Vendido</p>
-              <p className="text-2xl font-bold text-white">${pedidos.reduce((sum, p) => sum + p.total, 0).toFixed(0)}</p>
+                      {abierto && (
+                        <div className="px-4 md:px-6 pb-4 md:pb-6">
+                          <div className="space-y-2 mb-4 pt-4 border-t border-slate-700">
+                            {ped.items.map((item, idx) => (
+                              <div key={idx} className="bg-slate-900/50 rounded p-3 border-slate-700">
+                                <div className="flex justify-between mb-2">
+                                  <span className="text-white font-medium">{item.nombrePlato} x{item.cantidad}</span>
+                                  <span className="text-teal-400 font-bold">${(item.precioVentaUnitario * item.cantidad).toFixed(0)}</span>
+                                </div>
+                                <div className="space-y-1 ml-2">
+                                  {item.ingredientes.map((ing, i) => {
+                                    const cantidadMostrar = (ing.unidad === 'kg' || ing.unidad === 'L') && ing.cantidad < 1? ing.cantidad * 1000 : ing.cantidad;
+                                    const unidadMostrar = (ing.unidad === 'kg' && ing.cantidad < 1)? 'g' : (ing.unidad === 'L' && ing.cantidad < 1)? 'ml' : ing.unidad;
+                                    return (
+                                      <p key={i} className="text-slate-400 text-xs">
+                                        {ing.nombre}: {cantidadMostrar}{unidadMostrar}
+                                      </p>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-slate-700 mb-4">
+                            <div><p className="text-slate-400 text-sm">Costo</p><p className="text-base md:text-lg font-semibold text-white">${ped.costoTotal.toFixed(2)}</p></div>
+                            <div><p className="text-slate-400 text-sm">Ganancia</p><p className="text-base md:text-lg font-semibold text-emerald-400">+${gananciaPed.toFixed(2)}</p></div>
+                            <div><p className="text-slate-400 text-sm">Total Venta</p><p className="text-base md:text-lg font-bold text-teal-400">${ped.total.toFixed(0)}</p></div>
+                          </div>
+                          <button 
+                            onClick={(e) => {e.stopPropagation(); borrarPedido(ped.id)}} 
+                            className="text-red-400 hover:text-red-300 text-sm font-medium"
+                          >
+                            Eliminar pedido
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {tab === 'estadisticas' && (
+            <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg shadow-xl border-slate-700 p-4 md:p-6">
+              <h2 className="text-lg md:text-xl font-semibold text-white mb-6">Estadísticas</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-slate-900/50 rounded-lg p-4 border-slate-700">
+                  <p className="text-slate-400 text-sm">Total Vendido</p>
+                  <p className="text-2xl font-bold text-white">${pedidos.reduce((sum, p) => sum + p.total, 0).toFixed(0)}</p>
+                </div>
+                <div className="bg-slate-900/50 rounded-lg p-4 border-slate-700">
+                  <p className="text-slate-400 text-sm">Costo Total</p>
+                  <p className="text-2xl font-bold text-white">${costoTotal.toFixed(2)}</p>
+                </div>
+                <div className="bg-slate-900/50 rounded-lg p-4 border-slate-700">
+                  <p className="text-slate-400 text-sm">Ganancia Total</p>
+                  <p className="text-2xl font-bold text-emerald-400">${gananciaTotal.toFixed(2)}</p>
+                </div>
+              </div>
             </div>
-            <div className="bg-slate-900/50 rounded-lg p-4 border-slate-700">
-              <p className="text-slate-400 text-sm">Costo Total</p>
-              <p className="text-2xl font-bold text-white">${costoTotal.toFixed(2)}</p>
-            </div>
-            <div className="bg-slate-900/50 rounded-lg p-4 border-slate-700">
-              <p className="text-slate-400 text-sm">Ganancia Total</p>
-              <p className="text-2xl font-bold text-emerald-400">${gananciaTotal.toFixed(2)}</p>
-            </div>
-          </div>
+          )}
         </div>
-      )}
-    </div>
-  </main>
-</>
+      </main>
+    </>
   );
 }
