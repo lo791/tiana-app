@@ -59,7 +59,7 @@ export default function Home() {
   const [fotoPlato, setFotoPlato] = useState("");
   const [ganancia, setGanancia] = useState(50);
   const [ingredientesPlato, setIngredientesPlato] = useState<IngredientePlato[]>([]);
-  const [busquedaIngredienteRapida, setBusquedaIngredienteRapida] = useState("");
+  const [busqueda, setBusqueda] = useState(""); // NUEVO: buscador único con dropdown
   const [porciones, setPorciones] = useState(1);
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -111,15 +111,15 @@ export default function Home() {
     setEditandoPrecioId(null);
   };
 
-  const agregarIngredienteAPlato = () => setIngredientesPlato([...ingredientesPlato, { ingredienteId: ingredientesBase[0]?.id || 0, cantidad: 0.2 }]);
+  const agregarIngredienteAPlato = (id: number) => setIngredientesPlato([...ingredientesPlato, { ingredienteId: id, cantidad: 0.2 }]); // MODIFICADO
 
-  const agregarIngredienteRapido = (textoBusqueda: string) => {
+  const agregarIngredienteBuscado = () => { // NUEVO
     const ingEncontrado = ingredientesBase.find(ing =>
-      ing.nombre.toLowerCase().includes(textoBusqueda.toLowerCase())
+      ing.nombre.toLowerCase().includes(busqueda.toLowerCase())
     );
     if (ingEncontrado) {
-      setIngredientesPlato([...ingredientesPlato, { ingredienteId: ingEncontrado.id, cantidad: 0.2 }]);
-      setBusquedaIngredienteRapida("");
+      agregarIngredienteAPlato(ingEncontrado.id);
+      setBusqueda("");
     }
   };
 
@@ -157,7 +157,7 @@ export default function Home() {
     setGanancia(50);
     setPorciones(1);
     setIngredientesPlato([]);
-    setBusquedaIngredienteRapida("");
+    setBusqueda("");
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -168,7 +168,7 @@ export default function Home() {
     setIngredientesPlato(plato.ingredientes);
     setPorciones(plato.porciones || 1);
     setEditandoId(plato.id);
-    setBusquedaIngredienteRapida("");
+    setBusqueda("");
     const esDulce = esPlatoDulce(plato.nombre);
     setSubTabPlatos(esDulce? 'dulces' : 'salados');
     setTab('platos');
@@ -286,6 +286,10 @@ export default function Home() {
   const ingredientesBaseFiltrados = ingredientesBase.filter(ing =>
     ing.nombre.toLowerCase().includes(busquedaIng.toLowerCase())
   );
+
+  const ingredientesSugeridos = busqueda // NUEVO: filtro para dropdown
+   ? ingredientesBase.filter(ing => ing.nombre.toLowerCase().includes(busqueda.toLowerCase())).slice(0, 8)
+    : [];
 
   const totalPlato = (ings: IngredientePlato[]) => ings.reduce((sum, ingPlato) => sum + calcularPrecioIngrediente(ingPlato), 0);
   const precioVenta = (costo: number, gan: number) => costo * (1 + gan / 100);
@@ -417,22 +421,38 @@ export default function Home() {
                   </div>
                 </div>
 
-                <div className="mb-4">
-                  <label className="text-slate-300 font-medium mb-2 block">Agregar ingredientes rápido - Escribí y apretá Enter</label>
+                <div className="mb-4 relative">
+                  <label className="text-slate-300 font-medium mb-2 block">Agregar ingredientes - Escribí y elegí</label>
                   <input
                     type="text"
-                    placeholder="🔍 Ej: harina, azúcar, leche... Enter para agregar"
-                    value={busquedaIngredienteRapida}
-                    onChange={e => setBusquedaIngredienteRapida(e.target.value)}
+                    placeholder="🔍 Ej: harina, azúcar, leche..."
+                    value={busqueda}
+                    onChange={e => setBusqueda(e.target.value)}
                     onKeyDown={e => {
-                      if (e.key === 'Enter' && busquedaIngredienteRapida.trim()) {
+                      if (e.key === 'Enter' && busqueda.trim()) {
                         e.preventDefault();
-                        agregarIngredienteRapido(busquedaIngredienteRapida);
+                        agregarIngredienteBuscado();
                       }
                     }}
                     className="bg-slate-900 border-teal-500 p-3 w-full rounded-lg outline-none text-white placeholder-slate-500 focus:border-teal-400"
                     disabled={ingredientesBase.length === 0}
                   />
+
+                  {ingredientesSugeridos.length > 0 && (
+                    <div className="absolute z-20 w-full mt-1 bg-slate-800 border-slate-600 rounded-lg max-h-60 overflow-y-auto shadow-xl">
+                      {ingredientesSugeridos.map(ing => (
+                        <button
+                          key={ing.id}
+                          type="button"
+                          onClick={() => { agregarIngredienteAPlato(ing.id); setBusqueda('') }}
+                          className="w-full text-left px-4 py-2 hover:bg-slate-700 text-white border-b border-slate-700 last:border-0"
+                        >
+                          <span className="font-medium">{ing.nombre}</span>
+                          <span className="text-slate-400 text-sm ml-2">${ing.precioUnitario}/{ing.unidad}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-3 mb-5">
@@ -538,7 +558,7 @@ export default function Home() {
                 <h2 className="text-lg md:text-xl font-semibold text-white mb-4 md:mb-6">Nuevo Pedido</h2>
                 {platos.length === 0 && <div className="bg-amber-900/30 border-amber-700 rounded-lg p-4 mb-4"><p className="text-amber-300 text-sm">Debe cargar platos antes de crear pedidos</p></div>}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
-                  <input placeholder="Nombre del cliente" value={cliente} onChange={e => setCliente(e.target.value)} className="bg-slate-900 border-slate-600 p-3 rounded-lg outline-none text-white placeholder-slate-500 focus:border-teal-500" disabled={platos.length === 0} />
+                 <input placeholder="Nombre del cliente" value={cliente} onChange={e => setCliente(e.target.value)} className="bg-slate-900 border-slate-600 p-3 rounded-lg outline-none text-white placeholder-slate-500 focus:border-teal-500" disabled={platos.length === 0} />
                   <input placeholder="Dirección de entrega" value={direccion} onChange={e => setDireccion(e.target.value)} className="bg-slate-900 border-slate-600 p-3 rounded-lg outline-none text-white placeholder-slate-500 focus:border-teal-500" disabled={platos.length === 0} />
                   <input placeholder="Teléfono" value={telefono} onChange={e => setTelefono(e.target.value)} className="bg-slate-900 border-slate-600 p-3 rounded-lg outline-none text-white placeholder-slate-500 focus:border-teal-500" disabled={platos.length === 0} />
                 </div>
