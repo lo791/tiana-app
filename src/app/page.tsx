@@ -59,7 +59,7 @@ export default function Home() {
   const [fotoPlato, setFotoPlato] = useState("");
   const [ganancia, setGanancia] = useState(50);
   const [ingredientesPlato, setIngredientesPlato] = useState<IngredientePlato[]>([]);
-  const [busqueda, setBusqueda] = useState(""); // NUEVO: buscador único con dropdown
+  const [busqueda, setBusqueda] = useState("");
   const [porciones, setPorciones] = useState(1);
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -111,9 +111,9 @@ export default function Home() {
     setEditandoPrecioId(null);
   };
 
-  const agregarIngredienteAPlato = (id: number) => setIngredientesPlato([...ingredientesPlato, { ingredienteId: id, cantidad: 0.2 }]); // MODIFICADO
+  const agregarIngredienteAPlato = (id: number) => setIngredientesPlato([...ingredientesPlato, { ingredienteId: id, cantidad: 0.2 }]);
 
-  const agregarIngredienteBuscado = () => { // NUEVO
+  const agregarIngredienteBuscado = () => {
     const ingEncontrado = ingredientesBase.find(ing =>
       ing.nombre.toLowerCase().includes(busqueda.toLowerCase())
     );
@@ -287,8 +287,8 @@ export default function Home() {
     ing.nombre.toLowerCase().includes(busquedaIng.toLowerCase())
   );
 
-  const ingredientesSugeridos = busqueda // NUEVO: filtro para dropdown
-   ? ingredientesBase.filter(ing => ing.nombre.toLowerCase().includes(busqueda.toLowerCase())).slice(0, 8)
+  const ingredientesSugeridos = busqueda
+  ? ingredientesBase.filter(ing => ing.nombre.toLowerCase().includes(busqueda.toLowerCase())).slice(0, 8)
     : [];
 
   const totalPlato = (ings: IngredientePlato[]) => ings.reduce((sum, ingPlato) => sum + calcularPrecioIngrediente(ingPlato), 0);
@@ -471,12 +471,18 @@ export default function Home() {
                   })}
                 </div>
 
-                {ingredientesPlato.length > 0 && porciones > 0 && (
-                  <div className="bg-teal-900/30 border-teal-700 rounded-lg p-4 mb-5">
-                    <p className="text-teal-300 text-sm">Costo total receta: <span className="font-bold">${totalPlato(ingredientesPlato).toFixed(2)}</span></p>
-                    <p className="text-teal-300 text-sm">Costo porción: <span className="font-bold text-lg">${costoPorcion(totalPlato(ingredientesPlato), porciones).toFixed(2)}</span></p>
-                  </div>
-                )}
+                {ingredientesPlato.length > 0 && porciones > 0 && (() => {
+                  const costoTotal = totalPlato(ingredientesPlato);
+                  const costoPorc = costoPorcion(costoTotal, porciones);
+                  const ventaPorc = precioVenta(costoPorc, ganancia);
+                  return (
+                    <div className="bg-teal-900/30 border-teal-700 rounded-lg p-4 mb-5 space-y-1">
+                      <p className="text-teal-300 text-sm">Costo total receta: <span className="font-bold">${costoTotal.toFixed(2)}</span></p>
+                      <p className="text-teal-300 text-sm">Costo porción: <span className="font-bold">${costoPorc.toFixed(2)}</span></p>
+                      <p className="text-emerald-400 text-sm">Precio venta porción: <span className="font-bold text-lg">${ventaPorc.toFixed(0)}</span></p>
+                    </div>
+                  );
+                })()}
 
                 <div className="flex flex-col md:flex-row gap-3">
                   <button onClick={crearOActualizarPlato} className="bg-teal-600 hover:bg-teal-700 text-white px-6 py-2 rounded-lg font-medium disabled:opacity-50 transition" disabled={ingredientesBase.length === 0}>
@@ -514,8 +520,8 @@ export default function Home() {
                             <h3 className="font-semibold text-base md:text-lg text-white">{p.nombre}</h3>
                             <div className="flex flex-col md:flex-row gap-1 md:gap-4 mt-1 text-xs md:text-sm">
                               <span className="text-slate-400">Costo: <span className="text-white">${costo.toFixed(2)}</span></span>
-                              <span className="text-slate-400">Por porción: <span className="text-emerald-400">${costoPorcionCalculado.toFixed(2)}</span></span>
-                              <span className="text-slate-400">Venta: <span className="text-teal-400 font-bold">${venta.toFixed(0)}</span></span>
+                              <span className="text-slate-400">Costo porción: <span className="text-emerald-400">${costoPorcionCalculado.toFixed(2)}</span></span>
+                              <span className="text-slate-400">Venta porción: <span className="text-teal-400 font-bold">${precioVenta(costoPorcionCalculado, p.ganancia).toFixed(0)}</span></span>
                             </div>
                           </div>
                         </div>
