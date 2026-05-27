@@ -14,7 +14,7 @@ type Plato = {
   ingredientes: IngredientePlato[];
   porciones?: number;
   unidadesPorVenta?: number;
-  categoria: CategoriaPlato; // NUEVO
+  categoria: CategoriaPlato;
 };
 
 type BoxItem = { platoId: number; cantidad: number };
@@ -47,7 +47,12 @@ const CATEGORIAS: CategoriaPlato[] = ['POSTRES', 'PANADERIA DULCE', 'PANADERIA S
 
 export default function Home() {
   const [tab, setTab] = useState<'ingredientes' | 'platos' | 'boxes' | 'pedidos' | 'estadisticas'>('platos');
-  const [filtroCategoria, setFiltroCategoria] = useState<CategoriaPlato | 'TODAS'>('TODAS'); // NUEVO
+  const [filtroCategoria, setFiltroCategoria] = useState<CategoriaPlato | 'TODAS'>('TODAS');
+
+  // NUEVOS ESTADOS PARA MOSTRAR/OCULTAR FORMS
+  const [mostrarFormPlato, setMostrarFormPlato] = useState(false);
+  const [mostrarFormBox, setMostrarFormBox] = useState(false);
+  const [mostrarFormPedido, setMostrarFormPedido] = useState(false);
 
   const [ingredientesBase, setIngredientesBase] = useState<IngredienteBase[]>(() => {
     if (typeof window === 'undefined') return [];
@@ -83,7 +88,7 @@ export default function Home() {
   const [nombrePlato, setNombrePlato] = useState("");
   const [fotoPlato, setFotoPlato] = useState("");
   const [ganancia, setGanancia] = useState(50);
-  const [categoriaPlato, setCategoriaPlato] = useState<CategoriaPlato>('SANDWICH'); // NUEVO
+  const [categoriaPlato, setCategoriaPlato] = useState<CategoriaPlato>('SANDWICH');
   const [ingredientesPlato, setIngredientesPlato] = useState<IngredientePlato[]>([]);
   const [busqueda, setBusqueda] = useState("");
   const [porciones, setPorciones] = useState(1);
@@ -231,6 +236,7 @@ export default function Home() {
     setUnidadesPorVenta(1);
     setIngredientesPlato([]);
     setBusqueda("");
+    setMostrarFormPlato(false); // CIERRA FORM
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -238,12 +244,13 @@ export default function Home() {
     setNombrePlato(plato.nombre);
     setFotoPlato(plato.foto);
     setGanancia(plato.ganancia);
-    setCategoriaPlato(plato.categoria); // NUEVO
+    setCategoriaPlato(plato.categoria);
     setIngredientesPlato(plato.ingredientes);
     setPorciones(plato.porciones || 1);
     setUnidadesPorVenta(plato.unidadesPorVenta || 1);
     setEditandoId(plato.id);
     setBusqueda("");
+    setMostrarFormPlato(true); // ABRE FORM
     setTab('platos');
     window.scrollTo({top: 0, behavior: 'smooth'});
   };
@@ -278,6 +285,7 @@ export default function Home() {
     setUnidadesBox(1);
     setItemsBox([]);
     setBusquedaBox("");
+    setMostrarFormBox(false); // CIERRA FORM
     if (fileInputBoxRef.current) fileInputBoxRef.current.value = "";
   };
 
@@ -289,6 +297,7 @@ export default function Home() {
     setUnidadesBox(box.unidadesPorVenta || 1);
     setEditandoBoxId(box.id);
     setBusquedaBox("");
+    setMostrarFormBox(true); // ABRE FORM
     setTab('boxes');
     window.scrollTo({top: 0, behavior: 'smooth'});
   };
@@ -407,6 +416,7 @@ export default function Home() {
     setDireccion("");
     setTelefono("");
     setItemsPedido([]);
+    setMostrarFormPedido(false); // CIERRA FORM
   };
 
   const borrarPedido = (id: number) => setPedidos(pedidos.filter(p => p.id!== id));
@@ -427,7 +437,7 @@ export default function Home() {
     return { cantidad: ingPlato.cantidad, unidad: ingBase.unidad };
   };
 
-  const esCategoriaDulce = (cat: CategoriaPlato) => cat === 'POSTRES' || cat === 'PANADERIA DULCE'; // NUEVO
+  const esCategoriaDulce = (cat: CategoriaPlato) => cat === 'POSTRES' || cat === 'PANADERIA DULCE';
 
   const platosFiltrados = platos.filter(p => {
     if (filtroCategoria === 'TODAS') return true;
@@ -439,7 +449,7 @@ export default function Home() {
   );
 
   const ingredientesSugeridos = busqueda
- ? ingredientesBase.filter(ing => ing.nombre.toLowerCase().includes(busqueda.toLowerCase())).slice(0, 8)
+? ingredientesBase.filter(ing => ing.nombre.toLowerCase().includes(busqueda.toLowerCase())).slice(0, 8)
     : [];
 
   const totalPlato = (platoId: number) => calcularCostoPlato(platoId);
@@ -543,477 +553,585 @@ export default function Home() {
           {tab === 'platos' && (
             <>
               <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg shadow-xl border-slate-700 p-4 md:p-6 mb-6">
-                <h2 className="text-lg md:text-xl font-semibold text-white mb-4 md:mb-6">{editandoId? "Editar Plato" : "Nuevo Plato"}</h2>
-                {ingredientesBase.length === 0 && <div className="bg-amber-900/30 border-amber-700 rounded-lg p-4 mb-4"><p className="text-amber-300 text-sm">Debe cargar ingredientes antes de crear platos</p></div>}
-                <input placeholder="Nombre del plato" value={nombrePlato} onChange={e => setNombrePlato(e.target.value)} className="bg-slate-900 border-slate-600 p-3 w-full mb-4 rounded-lg outline-none text-white placeholder-slate-500 focus:border-teal-500" disabled={ingredientesBase.length === 0} />
 
-                <div className="mb-4">
-                  <label className="text-slate-300 font-medium mb-2 block">Categoría del plato</label>
-                  <select value={categoriaPlato} onChange={e => setCategoriaPlato(e.target.value as CategoriaPlato)} className="bg-slate-900 border-slate-600 p-3 w-full rounded-lg outline-none text-white focus:border-teal-500" disabled={ingredientesBase.length === 0}>
-                    {CATEGORIAS.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                  </select>
-                </div>
-
-                <div className="mb-4">
-                  <label className="text-slate-300 font-medium mb-2 block">Foto del plato</label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    ref={fileInputRef}
-                    onChange={manejarSubidaImagen}
-                    className="bg-slate-900 border-slate-600 p-3 w-full rounded-lg outline-none text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-teal-600 file:text-white hover:file:bg-teal-700 cursor-pointer"
-                    disabled={ingredientesBase.length === 0}
-                  />
-                </div>
-
-                {fotoPlato && <img src={fotoPlato} alt="preview" className="w-full h-48 object-cover rounded-lg mb-5 border-slate-700" />}
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                  <div>
-                    <label className="text-slate-300 font-medium mb-2 block">Margen de ganancia: {ganancia}%</label>
-                    <input type="range" min="0" max="200" value={ganancia} onChange={e => setGanancia(Number(e.target.value))} className="w-full accent-teal-500" disabled={ingredientesBase.length === 0} />
-                  </div>
-                  <div>
-                    <label className="text-slate-300 font-medium mb-2 block">Porciones receta</label>
-                    <input type="number" min="1" value={porciones} onChange={e => setPorciones(Number(e.target.value))} className="bg-slate-900 border-slate-600 p-3 w-full rounded-lg outline-none text-white focus:border-teal-500" disabled={ingredientesBase.length === 0} />
-                  </div>
-                  <div>
-                    <label className="text-slate-300 font-medium mb-2 block">Unidades por venta</label>
-                    <input type="number" min="1" value={unidadesPorVenta} onChange={e => setUnidadesPorVenta(Number(e.target.value))} className="bg-slate-900 border-slate-600 p-3 w-full rounded-lg outline-none text-white focus:border-teal-500" disabled={ingredientesBase.length === 0} />
-                    <p className="text-slate-500 text-xs mt-1">Ej: grisines = 10, prepizza = 1</p>
-                  </div>
-                </div>
-
-                <div className="mb-4 relative">
-                  <label className="text-slate-300 font-medium mb-2 block">Agregar ingredientes - Escribí y elegí</label>
-                  <input
-                    type="text"
-                    placeholder="🔍 Ej: harina, azúcar, leche..."
-                    value={busqueda}
-                    onChange={e => setBusqueda(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter' && busqueda.trim()) {
-                        e.preventDefault();
-                        agregarIngredienteBuscado();
-                      }
-                    }}
-                    className="bg-slate-900 border-teal-500 p-3 w-full rounded-lg outline-none text-white placeholder-slate-500 focus:border-teal-400"
-                    disabled={ingredientesBase.length === 0}
-                  />
-
-                  {ingredientesSugeridos.length > 0 && (
-                    <div className="absolute z-20 w-full mt-1 bg-slate-800 border-slate-600 rounded-lg max-h-60 overflow-y-auto shadow-xl">
-                      {ingredientesSugeridos.map(ing => (
-                        <button
-                          key={ing.id}
-                          type="button"
-                          onClick={() => { agregarIngredienteAPlato(ing.id); setBusqueda('') }}
-                          className="w-full text-left px-4 py-2 hover:bg-slate-700 text-white border-b border-slate-700 last:border-0"
-                        >
-                          <span className="font-medium">{ing.nombre}</span>
-                          <span className="text-slate-400 text-sm ml-2">${ing.precioUnitario}/{ing.unidad}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-3 mb-5">
-                  {ingredientesPlato.map((ingPlato, i) => {
-                    const precio = calcularPrecioIngrediente(ingPlato);
-                    return (
-                      <div key={i} className="grid grid-cols-1 md:grid-cols-13 gap-2 items-start md:items-center">
-                        <select value={ingPlato.ingredienteId} onChange={e => actualizarIngredientePlato(i, "ingredienteId", Number(e.target.value))} className="bg-slate-900 border-slate-600 p-3 md:col-span-6 rounded-lg outline-none text-white focus:border-teal-500" disabled={ingredientesBase.length === 0}>
-                          {ingredientesBase.map(ing => <option key={ing.id} value={ing.id}>{ing.nombre} - ${ing.precioUnitario}/{ing.unidad}</option>)}
-                        </select>
-                        <input type="number" step="0.01" placeholder="Cantidad" value={ingPlato.cantidad} onChange={e => actualizarIngredientePlato(i, "cantidad", e.target.value)} className="bg-slate-900 border-slate-600 p-3 md:col-span-4 rounded-lg outline-none text-white focus:border-teal-500" disabled={ingredientesBase.length === 0} />
-                        <div className="md:col-span-2 text-left md:text-right"><span className="text-teal-400 font-medium">${precio.toFixed(2)}</span></div>
-                        <button onClick={() => borrarIngredienteDePlato(i)} disabled={ingredientesPlato.length === 1} className="text-red-400 hover:text-red-300 text-sm disabled:opacity-30 mt-2 md:mt-0">Eliminar</button>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {ingredientesPlato.length > 0 && porciones > 0 && (() => {
-                  const costoTotal = totalPlato(editandoId || 0);
-                  const costoPorc = costoPorcion(costoTotal, porciones);
-                  const costoVenta = costoPorc * (unidadesPorVenta || 1);
-                  const ventaPorc = precioVenta(costoVenta, ganancia);
-                  return (
-                    <div className="bg-teal-900/30 border-teal-700 rounded-lg p-4 mb-5 space-y-1">
-                      <p className="text-teal-300 text-sm">Costo total receta: <span className="font-bold">${costoTotal.toFixed(2)}</span></p>
-                      <p className="text-teal-300 text-sm">Costo por unidad: <span className="font-bold">${costoPorc.toFixed(2)}</span></p>
-                      <p className="text-teal-300 text-sm">Costo porción venta: <span className="font-bold">${costoVenta.toFixed(2)}</span></p>
-                      <p className="text-emerald-400 text-sm">Precio venta porción: <span className="font-bold text-lg">${ventaPorc.toFixed(0)}</span></p>
-                    </div>
-                  );
-                })()}
-
-                <div className="flex flex-col md:flex-row gap-3">
-                  <button onClick={crearOActualizarPlato} className="bg-teal-600 hover:bg-teal-700 text-white px-6 py-2 rounded-lg font-medium disabled:opacity-50 transition" disabled={ingredientesBase.length === 0}>
-                    {editandoId? "Guardar cambios" : "Crear plato"}
+                {/* BOTÓN NUEVO PLATO - SOLO SI NO HAY FORM */}
+                {!mostrarFormPlato &&!editandoId && (
+                  <button
+                    onClick={() => setMostrarFormPlato(true)}
+                    className="w-full bg-teal-600 hover:bg-teal-700 text-white px-6 py-4 rounded-lg font-semibold flex items-center justify-center gap-2 transition"
+                  >
+                    ➕ Nuevo Plato
                   </button>
-                  {editandoId && <button onClick={() => setEditandoId(null)} className="bg-slate-700 hover:bg-slate-600 text-white px-6 py-2 rounded-lg font-medium transition">Cancelar</button>}
-                </div>
-              </div>
+                )}
 
-              <div className="space-y-4">
-                <div className="flex gap-2 mb-4 border-b border-slate-700 overflow-x-auto">
-                  <button onClick={() => setFiltroCategoria('TODAS')} className={`px-4 py-2 text-sm font-medium transition border-b-2 whitespace-nowrap ${filtroCategoria === 'TODAS'? 'border-teal-500 text-teal-400' : 'border-transparent text-slate-400 hover:text-white'}`}>Todas</button>
-                  {CATEGORIAS.map(cat => (
-                    <button key={cat} onClick={() => setFiltroCategoria(cat)} className={`px-4 py-2 text-sm font-medium transition border-b-2 whitespace-nowrap ${filtroCategoria === cat? 'border-teal-500 text-teal-400' : 'border-transparent text-slate-400 hover:text-white'}`}>{cat}</button>
-                  ))}
-                </div>
-
-                <h2 className="text-lg md:text-xl font-semibold text-white mb-4">Listado de Platos - {filtroCategoria === 'TODAS'? 'Todos' : filtroCategoria}</h2>
-                {platosFiltrados.length === 0 && <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg shadow-xl border-slate-700 p-8 md:p-12 text-center"><p className="text-slate-400">No hay platos en esta categoría</p></div>}
-
-                {platosFiltrados.map((p) => {
-                  const costo = calcularCostoPlato(p.id);
-                  const costoPorcionCalc = costoPorcion(costo, p.porciones || 1);
-                  const unidadesVenta = p.unidadesPorVenta || 1;
-                  const costoVenta = costoPorcionCalc * unidadesVenta;
-                  const venta = precioVenta(costoVenta, p.ganancia);
-                  const abierto = platoAbierto === p.id;
-                  const esDulce = esCategoriaDulce(p.categoria);
-
-                  return (
-                    <div key={p.id} className="bg-slate-800/50 backdrop-blur-sm rounded-lg shadow-xl border-slate-700 overflow-hidden">
+                {/* FORMULARIO - SOLO SI ESTÁ ACTIVO O EDITANDO */}
+                {(mostrarFormPlato || editandoId) && (
+                  <>
+                    <div className="flex justify-between items-center mb-4 md:mb-6">
+                      <h2 className="text-lg md:text-xl font-semibold text-white">{editandoId? "Editar Plato" : "Nuevo Plato"}</h2>
                       <button
-                        onClick={() => setPlatoAbierto(abierto? null : p.id)}
-                        className="w-full p-4 md:p-6 flex justify-between items-center hover:bg-slate-700/30 transition"
+                        onClick={() => {
+                          setMostrarFormPlato(false);
+                          setEditandoId(null);
+                          setNombrePlato("");
+                          setFotoPlato("");
+                          setGanancia(50);
+                          setCategoriaPlato('SANDWICH');
+                          setIngredientesPlato([]);
+                          setPorciones(1);
+                          setUnidadesPorVenta(1);
+                          setBusqueda("");
+                          if (fileInputRef.current) fileInputRef.current.value = "";
+                        }}
+                        className="text-slate-400 hover:text-white text-sm px-3 py-1"
                       >
-                        <div className="flex gap-3 md:gap-4 items-center text-left">
-                          {p.foto && <img src={p.foto} alt={p.nombre} className="w-12 h-12 md:w-16 md:h-16 rounded-lg object-cover" />}
-                          <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <h3 className="font-semibold text-base md:text-lg text-white">{p.nombre}</h3>
-                              <span className={`text-xs px-2 py-0.5 rounded ${esDulce? 'bg-pink-900/50 text-pink-300' : 'bg-blue-900/50 text-blue-300'}`}>
-                                {p.categoria}
-                              </span>
-                            </div>
-                            <div className="flex flex-col md:flex-row gap-1 md:gap-4 mt-1 text-xs md:text-sm">
-                              <span className="text-slate-400">Costo porción: <span className="text-emerald-400">${costoPorcionCalc.toFixed(2)}</span></span>
-                              <span className="text-slate-400">Venta x{unidadesVenta}: <span className="text-teal-400 font-bold">${venta.toFixed(0)}</span></span>
-                            </div>
-                          </div>
-                        </div>
-                        <span className={`text-slate-400 transition-transform ${abierto? 'rotate-180' : ''}`}>▼</span>
+                        ✕ Cerrar
                       </button>
-
-                      {abierto && (
-                        <div className="px-4 md:px-6 pb-4 md:pb-6">
-                          <div className="space-y-2 mb-4 pt-4 border-t border-slate-700">
-                            {p.ingredientes.map((ingPlato, i) => {
-                              const precio = calcularPrecioIngrediente(ingPlato);
-                              const { cantidad: mostrarCant, unidad: mostrarUnidad } = obtenerCantidadParaMostrar(ingPlato);
-                              const nombre = getIngrediente(ingPlato.ingredienteId)?.nombre || 'Ingrediente';
-                              return (
-                                <div key={i} className="bg-slate-900/50 rounded p-3 flex-col md:flex-row md:justify-between gap-1 text-sm border-slate-700">
-                                  <span className="text-slate-300">{nombre}</span>
-                                  <span className="text-slate-400">{mostrarCant}{mostrarUnidad} = ${precio.toFixed(2)}</span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-4 border-t border-slate-700 mb-4">
-                            <div><p className="text-slate-400 text-sm">Porciones receta</p><p className="text-base md:text-lg font-semibold text-white">{p.porciones || 1}</p></div>
-                            <div><p className="text-slate-400 text-sm">Unidades por venta</p><p className="text-base md:text-lg font-semibold text-white">{unidadesVenta}</p></div>
-                            <div><p className="text-slate-400 text-sm">Costo porción venta</p><p className="text-base md:text-lg font-semibold text-emerald-400">${costoVenta.toFixed(2)}</p></div>
-                            <div><p className="text-slate-400 text-sm">Precio Venta</p><p className="text-base md:text-lg font-bold text-teal-400">${venta.toFixed(0)}</p></div>
-                          </div>
-                          <div className="flex gap-2">
-                            <button onClick={(e) => {e.stopPropagation(); editarPlato(p)}} className="text-teal-400 hover:text-teal-300 text-sm font-medium">Editar</button>
-                            <button onClick={(e) => {e.stopPropagation(); borrarPlato(p.id)}} className="text-red-400 hover:text-red-300 text-sm font-medium">Eliminar</button>
-                          </div>
-                        </div>
-                      )}
                     </div>
-                  );
-                })}
-              </div>
-            </>
-          )}
 
-          {tab === 'boxes' && (
-            <>
-              <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg shadow-xl border-slate-700 p-4 md:p-6 mb-6">
-                <h2 className="text-lg md:text-xl font-semibold text-white mb-4 md:mb-6">{editandoBoxId? "Editar Box" : "Nueva Box/Combo"}</h2>
-                {platos.length === 0 && <div className="bg-amber-900/30 border-amber-700 rounded-lg p-4 mb-4"><p className="text-amber-300 text-sm">Debe cargar platos antes de crear boxes</p></div>}
+                    {ingredientesBase.length === 0 && <div className="bg-amber-900/30 border-amber-700 rounded-lg p-4 mb-4"><p className="text-amber-300 text-sm">Debe cargar ingredientes antes de crear platos</p></div>}
+                    <input placeholder="Nombre del plato" value={nombrePlato} onChange={e => setNombrePlato(e.target.value)} className="bg-slate-900 border-slate-600 p-3 w-full mb-4 rounded-lg outline-none text-white placeholder-slate-500 focus:border-teal-500" disabled={ingredientesBase.length === 0} />
 
-                <input placeholder="Nombre de la box" value={nombreBox} onChange={e => setNombreBox(e.target.value)} className="bg-slate-900 border-slate-600 p-3 w-full mb-4 rounded-lg outline-none text-white placeholder-slate-500 focus:border-purple-500" disabled={platos.length === 0} />
-
-                <div className="mb-4">
-                  <label className="text-slate-300 font-medium mb-2 block">Foto de la box</label>
-                  <input type="file" accept="image/*" ref={fileInputBoxRef} onChange={manejarSubidaImagenBox} className="bg-slate-900 border-slate-600 p-3 w-full rounded-lg outline-none text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700 cursor-pointer" disabled={platos.length === 0} />
-                </div>
-
-                {fotoBox && <img src={fotoBox} alt="preview" className="w-full h-48 object-cover rounded-lg mb-5 border-slate-700" />}
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                  <div>
-                    <label className="text-slate-300 font-medium mb-2 block">Margen de ganancia: {gananciaBox}%</label>
-                    <input type="range" min="0" max="200" value={gananciaBox} onChange={e => setGananciaBox(Number(e.target.value))} className="w-full accent-purple-500" disabled={platos.length === 0} />
-                  </div>
-                  <div>
-                    <label className="text-slate-300 font-medium mb-2 block">Unidades por venta</label>
-                    <input type="number" min="1" value={unidadesBox} onChange={e => setUnidadesBox(Number(e.target.value))} className="bg-slate-900 border-slate-600 p-3 w-full rounded-lg outline-none text-white focus:border-purple-500" disabled={platos.length === 0} />
-                  </div>
-                </div>
-
-                <div className="mb-4 relative">
-                  <label className="text-slate-300 font-medium mb-2 block">Agregar platos a la box</label>
-                  <input
-                    type="text"
-                    placeholder="🔍 Buscar plato: Focaccia, Sándwich..."
-                    value={busquedaBox}
-                    onChange={e => setBusquedaBox(e.target.value)}
-                    className="bg-slate-900 border-purple-500 p-3 w-full rounded-lg outline-none text-white placeholder-slate-500 focus:border-purple-400"
-                    disabled={platos.length === 0}
-                  />
-                  {busquedaBox && platos.filter(p => p.nombre.toLowerCase().includes(busquedaBox.toLowerCase())).length > 0 && (
-                    <div className="absolute z-20 w-full mt-1 bg-slate-800 border-slate-600 rounded-lg max-h-60 overflow-y-auto shadow-xl">
-                      {platos.filter(p => p.nombre.toLowerCase().includes(busquedaBox.toLowerCase())).map(p => {
-                        const costo = calcularCostoPlato(p.id);
-                        const costoPorc = costoPorcion(costo, p.porciones || 1);
-                        return (
-                          <button key={p.id} type="button" onClick={() => { agregarPlatoABox(p.id); setBusquedaBox('') }} className="w-full text-left px-4 py-2 hover:bg-slate-700 text-white border-b border-slate-700 last:border-0">
-                            <span className="font-medium">{p.nombre}</span>
-                            <span className="text-slate-400 text-sm ml-2">Costo porción: ${costoPorc.toFixed(2)}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-3 mb-5">
-                  {itemsBox.map((item, i) => {
-                    const plato = platos.find(p => p.id === item.platoId);
-                    if (!plato) return null;
-                    const costo = calcularCostoPlato(plato.id);
-                    const costoPorc = costoPorcion(costo, plato.porciones || 1);
-                    const subtotal = costoPorc * item.cantidad;
-                    return (
-                      <div key={i} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-center">
-                        <div className="md:col-span-6 bg-slate-900 border-slate-600 p-3 rounded-lg text-white">{plato.nombre}</div>
-                        <input type="number" step="0.5" min="0.5" value={item.cantidad} onChange={e => actualizarItemBox(i, Number(e.target.value))} className="bg-slate-900 border-slate-600 p-3 md:col-span-3 rounded-lg outline-none text-white focus:border-purple-500" />
-                        <div className="md:col-span-2 text-right"><span className="text-purple-400 font-medium">${subtotal.toFixed(2)}</span></div>
-                        <button onClick={() => borrarItemBox(i)} disabled={itemsBox.length === 1} className="text-red-400 hover:text-red-300 text-sm disabled:opacity-30">Eliminar</button>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {itemsBox.length > 0 && (() => {
-                  const costoTotal = calcularCostoBox(undefined, itemsBox);
-                  const costoVenta = costoTotal * (unidadesBox || 1);
-                  const venta = precioVenta(costoVenta, gananciaBox);
-                  return (
-                    <div className="bg-purple-900/30 border-purple-700 rounded-lg p-4 mb-5 space-y-1">
-                      <p className="text-purple-300 text-sm">Costo total box: <span className="font-bold">${costoTotal.toFixed(2)}</span></p>
-                      <p className="text-purple-300 text-sm">Costo x{unidadesBox} unidades: <span className="font-bold">${costoVenta.toFixed(2)}</span></p>
-                      <p className="text-emerald-400 text-sm">Precio venta box: <span className="font-bold text-lg">${venta.toFixed(0)}</span></p>
-                    </div>
-                  );
-                })()}
-
-                <div className="flex flex-col md:flex-row gap-3">
-                  <button onClick={crearOActualizarBox} className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg font-medium disabled:opacity-50 transition" disabled={platos.length === 0}>
-                    {editandoBoxId? "Guardar cambios" : "Crear box"}
-                  </button>
-                  {editandoBoxId && <button onClick={() => setEditandoBoxId(null)} className="bg-slate-700 hover:bg-slate-600 text-white px-6 py-2 rounded-lg font-medium transition">Cancelar</button>}
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <h2 className="text-lg md:text-xl font-semibold text-white mb-4">Mis Boxes</h2>
-                {boxes.length === 0 && <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg shadow-xl border-slate-700 p-8 md:p-12 text-center"><p className="text-slate-400">No hay boxes creadas</p></div>}
-
-                {boxes.map((b) => {
-                  const costo = calcularCostoBox(b.id);
-                  const unidadesVenta = b.unidadesPorVenta || 1;
-                  const costoVenta = costo * unidadesVenta;
-                  const venta = precioVenta(costoVenta, b.ganancia);
-                  const abierto = boxAbierto === b.id;
-
-                  return (
-                    <div key={b.id} className="bg-slate-800/50 backdrop-blur-sm rounded-lg shadow-xl border-slate-700 overflow-hidden">
-                      <button onClick={() => setBoxAbierto(abierto? null : b.id)} className="w-full p-4 md:p-6 flex justify-between items-center hover:bg-slate-700/30 transition">
-                        <div className="flex gap-3 md:gap-4 items-center text-left">
-                          {b.foto && <img src={b.foto} alt={b.nombre} className="w-12 h-12 md:w-16 md:h-16 rounded-lg object-cover" />}
-                          <div>
-                            <h3 className="font-semibold text-base md:text-lg text-white">{b.nombre}</h3>
-                            <p className="text-slate-400 text-sm">Costo: ${costo.toFixed(2)} | Venta x{unidadesVenta}: ${venta.toFixed(0)}</p>
-                          </div>
-                        </div>
-                        <span className={`text-slate-400 transition-transform ${abierto? 'rotate-180' : ''}`}>▼</span>
-                      </button>
-
-                      {abierto && (
-                        <div className="px-4 md:px-6 pb-4 md:pb-6">
-                          <div className="space-y-2 mb-4 pt-4 border-t border-slate-700">
-                            {b.items.map((item, i) => {
-                              const plato = platos.find(p => p.id === item.platoId);
-                              return plato? <div key={i} className="bg-slate-900/50 rounded p-2 text-sm text-slate-300">{plato.nombre} x{item.cantidad}</div> : null;
-                            })}
-                          </div>
-                          <div className="flex gap-2">
-                            <button onClick={(e) => {e.stopPropagation(); editarBox(b)}} className="text-purple-400 hover:text-purple-300 text-sm font-medium">Editar</button>
-                            <button onClick={(e) => {e.stopPropagation(); borrarBox(b.id)}} className="text-red-400 hover:text-red-300 text-sm font-medium">Eliminar</button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </>
-          )}
-
-          {tab === 'pedidos' && (
-            <>
-              <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg shadow-xl border-slate-700 p-4 md:p-6 mb-6">
-                <h2 className="text-lg md:text-xl font-semibold text-white mb-4 md:mb-6">Nuevo Pedido</h2>
-                {platos.length === 0 && boxes.length === 0 && <div className="bg-amber-900/30 border-amber-700 rounded-lg p-4 mb-4"><p className="text-amber-300 text-sm">Debe cargar platos o boxes antes de crear pedidos</p></div>}
-                
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
-                  <input placeholder="Nombre del cliente" value={cliente} onChange={e => setCliente(e.target.value)} className="bg-slate-900 border-slate-600 p-3 rounded-lg outline-none text-white placeholder-slate-500 focus:border-teal-500" />
-                  <input placeholder="Dirección de entrega" value={direccion} onChange={e => setDireccion(e.target.value)} className="bg-slate-900 border-slate-600 p-3 rounded-lg outline-none text-white placeholder-slate-500 focus:border-teal-500" />
-                  <input placeholder="Teléfono" value={telefono} onChange={e => setTelefono(e.target.value)} className="bg-slate-900 border-slate-600 p-3 rounded-lg outline-none text-white placeholder-slate-500 focus:border-teal-500" />
-                </div>
-
-                <div className="space-y-3 mb-5">
-                  {itemsPedido.map((item, i) => (
-                    <div key={i} className="grid grid-cols-1 md:grid-cols-13 gap-2 items-start md:items-center">
-                      <select value={`${item.tipo}-${item.itemId}`} onChange={e => actualizarItemPedido(i, "itemId", e.target.value)} className="bg-slate-900 border-slate-600 p-3 md:col-span-9 rounded-lg outline-none text-white focus:border-teal-500">
-                        {platos.map(plato => {
-                          const costo = calcularCostoPlato(plato.id);
-                          const costoPorcionCalc = costoPorcion(costo, plato.porciones || 1);
-                          const unidadesVenta = plato.unidadesPorVenta || 1;
-                          const costoVenta = costoPorcionCalc * unidadesVenta;
-                          const precio = precioVenta(costoVenta, plato.ganancia);
-                          return <option key={`plato-${plato.id}`} value={`plato-${plato.id}`}>🥖 {plato.nombre} - ${precio.toFixed(0)}</option>;
-                        })}
-                        {boxes.map(box => {
-                          const costo = calcularCostoBox(box.id);
-                          const unidadesVenta = box.unidadesPorVenta || 1;
-                          const costoVenta = costo * unidadesVenta;
-                          const precio = precioVenta(costoVenta, box.ganancia);
-                          return <option key={`box-${box.id}`} value={`box-${box.id}`}>📦 {box.nombre} - ${precio.toFixed(0)}</option>;
-                        })}
+                    <div className="mb-4">
+                      <label className="text-slate-300 font-medium mb-2 block">Categoría del plato</label>
+                      <select value={categoriaPlato} onChange={e => setCategoriaPlato(e.target.value as CategoriaPlato)} className="bg-slate-900 border-slate-600 p-3 w-full rounded-lg outline-none text-white focus:border-teal-500" disabled={ingredientesBase.length === 0}>
+                        {CATEGORIAS.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                       </select>
-                      <input type="number" min="1" value={item.cantidad} onChange={e => actualizarItemPedido(i, "cantidad", e.target.value)} className="bg-slate-900 border-slate-600 p-3 md:col-span-3 rounded-lg outline-none text-white focus:border-teal-500" />
-                      <button onClick={() => borrarItemPedido(i)} disabled={itemsPedido.length === 1} className="text-red-400 hover:text-red-300 text-sm disabled:opacity-30 mt-2 md:mt-0">X</button>
                     </div>
-                  ))}
-                </div>
 
-                <button onClick={agregarItemPedido} className="text-teal-400 font-medium mb-5 hover:text-teal-300">+ Agregar item</button>
-
-                <div className="bg-slate-900/50 rounded-lg p-4 mb-5 border-slate-700">
-                  <p className="text-slate-400 text-sm mb-1">Total del pedido:</p>
-                  <p className="text-xl md:text-2xl font-bold text-white">
-                    ${itemsPedido.reduce((sum, item) => {
-                      if (item.tipo === 'plato') {
-                        const plato = platos.find(p => p.id === item.itemId);
-                        if (!plato) return sum;
-                        const costo = calcularCostoPlato(plato.id);
-                        const costoPorcionCalc = costoPorcion(costo, plato.porciones || 1);
-                        const unidadesVenta = plato.unidadesPorVenta || 1;
-                        const costoVenta = costoPorcionCalc * unidadesVenta;
-                        const precio = precioVenta(costoVenta, plato.ganancia);
-                        return sum + precio * item.cantidad;
-                      } else {
-                        const box = boxes.find(b => b.id === item.itemId);
-                        if (!box) return sum;
-                        const costo = calcularCostoBox(box.id);
-                        const unidadesVenta = box.unidadesPorVenta || 1;
-                        const costoVenta = costo * unidadesVenta;
-                        const precio = precioVenta(costoVenta, box.ganancia);
-                        return sum + precio * item.cantidad;
-                      }
-                    }, 0).toFixed(0)}
-                  </p>
-                </div>
-
-                <button onClick={crearPedido} className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded-lg font-medium disabled:opacity-50 w-full transition" disabled={!cliente ||!direccion ||!telefono}>
-                  Confirmar Pedido
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                <h2 className="text-lg md:text-xl font-semibold text-white mb-4">Historial de Pedidos</h2>
-                {pedidos.length === 0 && <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg shadow-xl border-slate-700 p-8 md:p-12 text-center"><p className="text-slate-400">No hay pedidos registrados</p></div>}
-
-                {pedidos.map((ped) => {
-                  const abierto = pedidoAbierto === ped.id;
-                  const gananciaPed = ped.total - ped.costoTotal;
-
-                  return (
-                    <div key={ped.id} className="bg-slate-800/50 backdrop-blur-sm rounded-lg shadow-xl border-slate-700 overflow-hidden">
-                      <button onClick={() => setPedidoAbierto(abierto? null : ped.id)} className="w-full p-4 md:p-6 flex justify-between items-center hover:bg-slate-700/30 transition">
-                        <div className="text-left">
-                          <h3 className="font-semibold text-white">{ped.cliente}</h3>
-                          <p className="text-slate-400 text-xs md:text-sm mb-3">{ped.direccion} - {ped.telefono}</p>
-                          <p className="text-teal-400 font-bold text-lg">${ped.total.toFixed(0)}</p>
-                        </div>
-                        <span className={`text-slate-400 transition-transform ${abierto? 'rotate-180' : ''}`}>▼</span>
-                      </button>
-
-                      {abierto && (
-                        <div className="px-4 md:px-6 pb-4 md:pb-6">
-                          <div className="space-y-2 mb-4 pt-4 border-t border-slate-700">
-                            {ped.items.map((item, idx) => (
-                              <div key={idx} className="bg-slate-900/50 rounded p-3 border-slate-700">
-                                <div className="flex justify-between mb-2">
-                                  <span className="text-white font-medium">{item.tipo === 'box'? '📦' : '🥖'} {item.nombreItem} x{item.cantidad}</span>
-                                  <span className="text-teal-400 font-bold">${(item.precioVentaUnitario * item.cantidad).toFixed(0)}</span>
-                                </div>
-                                <div className="space-y-1 ml-2">
-                                  {item.detalle.map((det, i) => (
-                                    <p key={i} className="text-slate-400 text-xs">{det.nombre}: {det.cantidad.toFixed(2)}{det.unidad}</p>
-                                  ))}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-slate-700 mb-4">
-                            <div><p className="text-slate-400 text-sm">Costo</p><p className="text-base md:text-lg font-semibold text-white">${ped.costoTotal.toFixed(2)}</p></div>
-                            <div><p className="text-slate-400 text-sm">Ganancia</p><p className="text-base md:text-lg font-semibold text-emerald-400">+${gananciaPed.toFixed(2)}</p></div>
-                            <div><p className="text-slate-400 text-sm">Total Venta</p><p className="text-base md:text-lg font-bold text-teal-400">${ped.total.toFixed(0)}</p></div>
-                          </div>
-                          <button onClick={(e) => {e.stopPropagation(); borrarPedido(ped.id)}} className="text-red-400 hover:text-red-300 text-sm font-medium">Eliminar pedido</button>
-                        </div>
-                      )}
+                    <div className="mb-4">
+                      <label className="text-slate-300 font-medium mb-2 block">Foto del plato</label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        ref={fileInputRef}
+                        onChange={manejarSubidaImagen}
+                        className="bg-slate-900 border-slate-600 p-3 w-full rounded-lg outline-none text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-teal-600 file:text-white hover:file:bg-teal-700 cursor-pointer"
+                        disabled={ingredientesBase.length === 0}
+                      />
                     </div>
-                  );
-                })}
-              </div>
-            </>
-          )}
 
-          {tab === 'estadisticas' && (
-            <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg shadow-xl border-slate-700 p-4 md:p-6">
-              <h2 className="text-lg md:text-xl font-semibold text-white mb-6">Estadísticas</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-slate-900/50 rounded-lg p-4 border-slate-700">
-                  <p className="text-slate-400 text-sm">Total Vendido</p>
-                  <p className="text-2xl font-bold text-white">${pedidos.reduce((sum, p) => sum + p.total, 0).toFixed(0)}</p>
-                </div>
-                <div className="bg-slate-900/50 rounded-lg p-4 border-slate-700">
-                  <p className="text-slate-400 text-sm">Costo Total</p>
-                  <p className="text-2xl font-bold text-white">${costoTotal.toFixed(2)}</p>
-                </div>
-                <div className="bg-slate-900/50 rounded-lg p-4 border-slate-700">
-                  <p className="text-slate-400 text-sm">Ganancia Total</p>
-                  <p className="text-2xl font-bold text-emerald-400">${gananciaTotal.toFixed(2)}</p>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </main>
-    </>
-  );
+                    {fotoPlato && <img src={fotoPlato} alt="preview" className="w-full h-48 object-cover rounded-lg mb-5 border-slate-700" />}
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                      <div>
+                        <label className="text-slate-300 font-medium mb-2 block">Margen de ganancia: {ganancia}%</label>
+                        <input type="range" min="0" max="200" value={ganancia} onChange={e => setGanancia(Number(e.target.value))} className="w-full accent-teal-500" disabled={ingredientesBase.length === 0} />
+                      </div>
+                      <div>
+                        <label className="text-slate-300 font-medium mb-2 block">Porciones receta</label>
+                        <input type="number" min="1" value={porciones} onChange={e => setPorciones(Number(e.target.value))} className="bg-slate-900 border-slate-600 p-3 w-full rounded-lg outline-none text-white focus:border-teal-500" disabled={ingredientesBase.length === 0} />
+                      </div>
+                      <div>
+                        <label className="text-slate-300 font-medium mb-2 block">Unidades por venta</label>
+                        <input type="number" min="1" value={unidadesPorVenta} onChange={e => setUnidadesPorVenta(Number(e.target.value))} className="bg-slate-900 border-slate-600 p-3 w-full rounded-lg outline-none text-white focus:border-teal-500" disabled={ingredientesBase.length === 0} />
+                        <p className="text-slate-500 text-xs mt-1">Ej: grisines = 10, prepizza = 1</p>
+                      </div>
+                    </div>
+
+                    <div className="mb-4 relative">
+                      <label className="text-slate-300 font-medium mb-2 block">Agregar ingredientes - Escribí y elegí</label>
+                      <input
+                        type="text"
+                        placeholder="🔍 Ej: harina, azúcar, leche..."
+                        value={busqueda}
+                        onChange={e => setBusqueda(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' && busqueda.trim()) {
+                            e.preventDefault();
+                            agregarIngredienteBuscado();
+                          }
+                        }}
+                        className="bg-slate-900 border-teal-500 p-3 w-full rounded-lg outline-none text-white placeholder-slate-500 focus:border-teal-400"
+                        disabled={ingredientesBase.length === 0}
+                      />
+
+                      {ingredientesSugeridos.length > 0 && (
+                        <div className="absolute z-20 w-full mt-1 bg-slate-800 border-slate-600 rounded-lg max-h-60 overflow-y-auto shadow-xl">
+                          {ingredientesSugeridos.map(ing => (
+                            <button
+                              key={ing.id}
+                              type="button"onClick={() => { agregarIngredienteAPlato(ing.id); setBusqueda('') }}
+className="w-full text-left px-4 py-2 hover:bg-slate-700 text-white border-b border-slate-700 last:border-0"
+>
+  <span className="font-medium">{ing.nombre}</span>
+  <span className="text-slate-400 text-sm ml-2">${ing.precioUnitario}/{ing.unidad}</span>
+</button>
+))}
+</div>
+)}
+</div>
+
+<div className="space-y-3 mb-5">
+{ingredientesPlato.map((ingPlato, i) => {
+const precio = calcularPrecioIngrediente(ingPlato);
+return (
+<div key={i} className="grid grid-cols-1 md:grid-cols-13 gap-2 items-start md:items-center">
+<select value={ingPlato.ingredienteId} onChange={e => actualizarIngredientePlato(i, "ingredienteId", Number(e.target.value))} className="bg-slate-900 border-slate-600 p-3 md:col-span-6 rounded-lg outline-none text-white focus:border-teal-500" disabled={ingredientesBase.length === 0}>
+{ingredientesBase.map(ing => <option key={ing.id} value={ing.id}>{ing.nombre} - ${ing.precioUnitario}/{ing.unidad}</option>)}
+</select>
+<input type="number" step="0.01" placeholder="Cantidad" value={ingPlato.cantidad} onChange={e => actualizarIngredientePlato(i, "cantidad", e.target.value)} className="bg-slate-900 border-slate-600 p-3 md:col-span-4 rounded-lg outline-none text-white focus:border-teal-500" disabled={ingredientesBase.length === 0} />
+<div className="md:col-span-2 text-left md:text-right"><span className="text-teal-400 font-medium">${precio.toFixed(2)}</span></div>
+<button onClick={() => borrarIngredienteDePlato(i)} disabled={ingredientesPlato.length === 1} className="text-red-400 hover:text-red-300 text-sm disabled:opacity-30 mt-2 md:mt-0">Eliminar</button>
+</div>
+);
+})}
+</div>
+
+{ingredientesPlato.length > 0 && porciones > 0 && (() => {
+const costoTotal = totalPlato(editandoId || 0);
+const costoPorc = costoPorcion(costoTotal, porciones);
+const costoVenta = costoPorc * (unidadesPorVenta || 1);
+const ventaPorc = precioVenta(costoVenta, ganancia);
+return (
+<div className="bg-teal-900/30 border-teal-700 rounded-lg p-4 mb-5 space-y-1">
+<p className="text-teal-300 text-sm">Costo total receta: <span className="font-bold">${costoTotal.toFixed(2)}</span></p>
+<p className="text-teal-300 text-sm">Costo por unidad: <span className="font-bold">${costoPorc.toFixed(2)}</span></p>
+<p className="text-teal-300 text-sm">Costo porción venta: <span className="font-bold">${costoVenta.toFixed(2)}</span></p>
+<p className="text-emerald-400 text-sm">Precio venta porción: <span className="font-bold text-lg">${ventaPorc.toFixed(0)}</span></p>
+</div>
+);
+})()}
+
+<div className="flex flex-col md:flex-row gap-3">
+<button onClick={crearOActualizarPlato} className="bg-teal-600 hover:bg-teal-700 text-white px-6 py-2 rounded-lg font-medium disabled:opacity-50 transition" disabled={ingredientesBase.length === 0}>
+{editandoId? "Guardar cambios" : "Crear plato"}
+</button>
+<button onClick={() => {
+setMostrarFormPlato(false);
+setEditandoId(null);
+}} className="bg-slate-700 hover:bg-slate-600 text-white px-6 py-2 rounded-lg font-medium transition">Cancelar</button>
+</div>
+</>
+)}
+</div>
+
+<div className="space-y-4">
+<div className="flex gap-2 mb-4 border-b border-slate-700 overflow-x-auto">
+<button onClick={() => setFiltroCategoria('TODAS')} className={`px-4 py-2 text-sm font-medium transition border-b-2 whitespace-nowrap ${filtroCategoria === 'TODAS'? 'border-teal-500 text-teal-400' : 'border-transparent text-slate-400 hover:text-white'}`}>Todas</button>
+{CATEGORIAS.map(cat => (
+<button key={cat} onClick={() => setFiltroCategoria(cat)} className={`px-4 py-2 text-sm font-medium transition border-b-2 whitespace-nowrap ${filtroCategoria === cat? 'border-teal-500 text-teal-400' : 'border-transparent text-slate-400 hover:text-white'}`}>{cat}</button>
+))}
+</div>
+
+<h2 className="text-lg md:text-xl font-semibold text-white mb-4">Listado de Platos - {filtroCategoria === 'TODAS'? 'Todos' : filtroCategoria}</h2>
+{platosFiltrados.length === 0 && <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg shadow-xl border-slate-700 p-8 md:p-12 text-center"><p className="text-slate-400">No hay platos en esta categoría</p></div>}
+
+{platosFiltrados.map((p) => {
+const costo = calcularCostoPlato(p.id);
+const costoPorcionCalc = costoPorcion(costo, p.porciones || 1);
+const unidadesVenta = p.unidadesPorVenta || 1;
+const costoVenta = costoPorcionCalc * unidadesVenta;
+const venta = precioVenta(costoVenta, p.ganancia);
+const abierto = platoAbierto === p.id;
+const esDulce = esCategoriaDulce(p.categoria);
+
+return (
+<div key={p.id} className="bg-slate-800/50 backdrop-blur-sm rounded-lg shadow-xl border-slate-700 overflow-hidden">
+<button
+onClick={() => setPlatoAbierto(abierto? null : p.id)}
+className="w-full p-4 md:p-6 flex justify-between items-center hover:bg-slate-700/30 transition"
+>
+<div className="flex gap-3 md:gap-4 items-center text-left">
+{p.foto && <img src={p.foto} alt={p.nombre} className="w-12 h-12 md:w-16 md:h-16 rounded-lg object-cover" />}
+<div>
+<div className="flex items-center gap-2 mb-1">
+<h3 className="font-semibold text-base md:text-lg text-white">{p.nombre}</h3>
+<span className={`text-xs px-2 py-0.5 rounded ${esDulce? 'bg-pink-900/50 text-pink-300' : 'bg-blue-900/50 text-blue-300'}`}>
+{p.categoria}
+</span>
+</div>
+<div className="flex flex-col md:flex-row gap-1 md:gap-4 mt-1 text-xs md:text-sm">
+<span className="text-slate-400">Costo porción: <span className="text-emerald-400">${costoPorcionCalc.toFixed(2)}</span></span>
+<span className="text-slate-400">Venta x{unidadesVenta}: <span className="text-teal-400 font-bold">${venta.toFixed(0)}</span></span>
+</div>
+</div>
+</div>
+<span className={`text-slate-400 transition-transform ${abierto? 'rotate-180' : ''}`}>▼</span>
+</button>
+
+{abierto && (
+<div className="px-4 md:px-6 pb-4 md:pb-6">
+<div className="space-y-2 mb-4 pt-4 border-t border-slate-700">
+{p.ingredientes.map((ingPlato, i) => {
+const precio = calcularPrecioIngrediente(ingPlato);
+const { cantidad: mostrarCant, unidad: mostrarUnidad } = obtenerCantidadParaMostrar(ingPlato);
+const nombre = getIngrediente(ingPlato.ingredienteId)?.nombre || 'Ingrediente';
+return (
+<div key={i} className="bg-slate-900/50 rounded p-3 flex-col md:flex-row md:justify-between gap-1 text-sm border-slate-700">
+<span className="text-slate-300">{nombre}</span>
+<span className="text-slate-400">{mostrarCant}{mostrarUnidad} = ${precio.toFixed(2)}</span>
+</div>
+);
+})}
+</div>
+<div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-4 border-t border-slate-700 mb-4">
+<div><p className="text-slate-400 text-sm">Porciones receta</p><p className="text-base md:text-lg font-semibold text-white">{p.porciones || 1}</p></div>
+<div><p className="text-slate-400 text-sm">Unidades por venta</p><p className="text-base md:text-lg font-semibold text-white">{unidadesVenta}</p></div>
+<div><p className="text-slate-400 text-sm">Costo porción venta</p><p className="text-base md:text-lg font-semibold text-emerald-400">${costoVenta.toFixed(2)}</p></div>
+<div><p className="text-slate-400 text-sm">Precio Venta</p><p className="text-base md:text-lg font-bold text-teal-400">${venta.toFixed(0)}</p></div>
+</div>
+<div className="flex gap-2">
+<button onClick={(e) => {e.stopPropagation(); editarPlato(p)}} className="text-teal-400 hover:text-teal-300 text-sm font-medium">Editar</button>
+<button onClick={(e) => {e.stopPropagation(); borrarPlato(p.id)}} className="text-red-400 hover:text-red-300 text-sm font-medium">Eliminar</button>
+</div>
+</div>
+)}
+</div>
+);
+})}
+</div>
+</>
+)}
+
+{tab === 'boxes' && (
+<>
+<div className="bg-slate-800/50 backdrop-blur-sm rounded-lg shadow-xl border-slate-700 p-4 md:p-6 mb-6">
+
+{!mostrarFormBox &&!editandoBoxId && (
+<button
+onClick={() => setMostrarFormBox(true)}
+className="w-full bg-purple-600 hover:bg-purple-700 text-white px-6 py-4 rounded-lg font-semibold flex items-center justify-center gap-2 transition"
+>
+➕ Nueva Box
+</button>
+)}
+
+{(mostrarFormBox || editandoBoxId) && (
+<>
+<div className="flex justify-between items-center mb-4 md:mb-6">
+<h2 className="text-lg md:text-xl font-semibold text-white">{editandoBoxId? "Editar Box" : "Nueva Box/Combo"}</h2>
+<button
+onClick={() => {
+setMostrarFormBox(false);
+setEditandoBoxId(null);
+setNombreBox("");
+setFotoBox("");
+setGananciaBox(50);
+setUnidadesBox(1);
+setItemsBox([]);
+setBusquedaBox("");
+if (fileInputBoxRef.current) fileInputBoxRef.current.value = "";
+}}
+className="text-slate-400 hover:text-white text-sm px-3 py-1"
+>
+✕ Cerrar
+</button>
+</div>
+
+{platos.length === 0 && <div className="bg-amber-900/30 border-amber-700 rounded-lg p-4 mb-4"><p className="text-amber-300 text-sm">Debe cargar platos antes de crear boxes</p></div>}
+
+<input placeholder="Nombre de la box" value={nombreBox} onChange={e => setNombreBox(e.target.value)} className="bg-slate-900 border-slate-600 p-3 w-full mb-4 rounded-lg outline-none text-white placeholder-slate-500 focus:border-purple-500" disabled={platos.length === 0} />
+
+<div className="mb-4">
+<label className="text-slate-300 font-medium mb-2 block">Foto de la box</label>
+<input type="file" accept="image/*" ref={fileInputBoxRef} onChange={manejarSubidaImagenBox} className="bg-slate-900 border-slate-600 p-3 w-full rounded-lg outline-none text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700 cursor-pointer" disabled={platos.length === 0} />
+</div>
+
+{fotoBox && <img src={fotoBox} alt="preview" className="w-full h-48 object-cover rounded-lg mb-5 border-slate-700" />}
+
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+<div>
+<label className="text-slate-300 font-medium mb-2 block">Margen de ganancia: {gananciaBox}%</label>
+<input type="range" min="0" max="200" value={gananciaBox} onChange={e => setGananciaBox(Number(e.target.value))} className="w-full accent-purple-500" disabled={platos.length === 0} />
+</div>
+<div>
+<label className="text-slate-300 font-medium mb-2 block">Unidades por venta</label>
+<input type="number" min="1" value={unidadesBox} onChange={e => setUnidadesBox(Number(e.target.value))} className="bg-slate-900 border-slate-600 p-3 w-full rounded-lg outline-none text-white focus:border-purple-500" disabled={platos.length === 0} />
+</div>
+</div>
+
+<div className="mb-4 relative">
+<label className="text-slate-300 font-medium mb-2 block">Agregar platos a la box</label>
+<input
+type="text"
+placeholder="🔍 Buscar plato: Focaccia, Sándwich..."
+value={busquedaBox}
+onChange={e => setBusquedaBox(e.target.value)}
+className="bg-slate-900 border-purple-500 p-3 w-full rounded-lg outline-none text-white placeholder-slate-500 focus:border-purple-400"
+disabled={platos.length === 0}
+/>
+{busquedaBox && platos.filter(p => p.nombre.toLowerCase().includes(busquedaBox.toLowerCase())).length > 0 && (
+<div className="absolute z-20 w-full mt-1 bg-slate-800 border-slate-600 rounded-lg max-h-60 overflow-y-auto shadow-xl">
+{platos.filter(p => p.nombre.toLowerCase().includes(busquedaBox.toLowerCase())).map(p => {
+const costo = calcularCostoPlato(p.id);
+const costoPorc = costoPorcion(costo, p.porciones || 1);
+return (
+<button key={p.id} type="button" onClick={() => { agregarPlatoABox(p.id); setBusquedaBox('') }} className="w-full text-left px-4 py-2 hover:bg-slate-700 text-white border-b border-slate-700 last:border-0">
+<span className="font-medium">{p.nombre}</span>
+<span className="text-slate-400 text-sm ml-2">Costo porción: ${costoPorc.toFixed(2)}</span>
+</button>
+);
+})}
+</div>
+)}
+</div>
+
+<div className="space-y-3 mb-5">
+{itemsBox.map((item, i) => {
+const plato = platos.find(p => p.id === item.platoId);
+if (!plato) return null;
+const costo = calcularCostoPlato(plato.id);
+const costoPorc = costoPorcion(costo, plato.porciones || 1);
+const subtotal = costoPorc * item.cantidad;
+return (
+<div key={i} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-center">
+<div className="md:col-span-6 bg-slate-900 border-slate-600 p-3 rounded-lg text-white">{plato.nombre}</div>
+<input type="number" step="0.5" min="0.5" value={item.cantidad} onChange={e => actualizarItemBox(i, Number(e.target.value))} className="bg-slate-900 border-slate-600 p-3 md:col-span-3 rounded-lg outline-none text-white focus:border-purple-500" />
+<div className="md:col-span-2 text-right"><span className="text-purple-400 font-medium">${subtotal.toFixed(2)}</span></div>
+<button onClick={() => borrarItemBox(i)} disabled={itemsBox.length === 1} className="text-red-400 hover:text-red-300 text-sm disabled:opacity-30">Eliminar</button>
+</div>
+);
+})}
+</div>
+
+{itemsBox.length > 0 && (() => {
+const costoTotal = calcularCostoBox(undefined, itemsBox);
+const costoVenta = costoTotal * (unidadesBox || 1);
+const venta = precioVenta(costoVenta, gananciaBox);
+return (
+<div className="bg-purple-900/30 border-purple-700 rounded-lg p-4 mb-5 space-y-1">
+<p className="text-purple-300 text-sm">Costo total box: <span className="font-bold">${costoTotal.toFixed(2)}</span></p>
+<p className="text-purple-300 text-sm">Costo x{unidadesBox} unidades: <span className="font-bold">${costoVenta.toFixed(2)}</span></p>
+<p className="text-emerald-400 text-sm">Precio venta box: <span className="font-bold text-lg">${venta.toFixed(0)}</span></p>
+</div>
+);
+})()}
+
+<div className="flex flex-col md:flex-row gap-3">
+<button onClick={crearOActualizarBox} className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg font-medium disabled:opacity-50 transition" disabled={platos.length === 0}>
+{editandoBoxId? "Guardar cambios" : "Crear box"}
+</button>
+<button onClick={() => {
+setMostrarFormBox(false);
+setEditandoBoxId(null);
+}} className="bg-slate-700 hover:bg-slate-600 text-white px-6 py-2 rounded-lg font-medium transition">Cancelar</button>
+</div>
+</>
+)}
+</div>
+
+<div className="space-y-4">
+<h2 className="text-lg md:text-xl font-semibold text-white mb-4">Mis Boxes</h2>
+{boxes.length === 0 && <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg shadow-xl border-slate-700 p-8 md:p-12 text-center"><p className="text-slate-400">No hay boxes creadas</p></div>}
+
+{boxes.map((b) => {
+const costo = calcularCostoBox(b.id);
+const unidadesVenta = b.unidadesPorVenta || 1;
+const costoVenta = costo * unidadesVenta;
+const venta = precioVenta(costoVenta, b.ganancia);
+const abierto = boxAbierto === b.id;
+
+return (
+<div key={b.id} className="bg-slate-800/50 backdrop-blur-sm rounded-lg shadow-xl border-slate-700 overflow-hidden">
+<button onClick={() => setBoxAbierto(abierto? null : b.id)} className="w-full p-4 md:p-6 flex justify-between items-center hover:bg-slate-700/30 transition">
+<div className="flex gap-3 md:gap-4 items-center text-left">
+{b.foto && <img src={b.foto} alt={b.nombre} className="w-12 h-12 md:w-16 md:h-16 rounded-lg object-cover" />}
+<div>
+<h3 className="font-semibold text-base md:text-lg text-white">{b.nombre}</h3>
+<p className="text-slate-400 text-sm">Costo: ${costo.toFixed(2)} | Venta x{unidadesVenta}: ${venta.toFixed(0)}</p>
+</div>
+</div>
+<span className={`text-slate-400 transition-transform ${abierto? 'rotate-180' : ''}`}>▼</span>
+</button>
+
+{abierto && (
+<div className="px-4 md:px-6 pb-4 md:pb-6">
+<div className="space-y-2 mb-4 pt-4 border-t border-slate-700">
+{b.items.map((item, i) => {
+const plato = platos.find(p => p.id === item.platoId);
+return plato? <div key={i} className="bg-slate-900/50 rounded p-2 text-sm text-slate-300">{plato.nombre} x{item.cantidad}</div> : null;
+})}
+</div>
+<div className="flex gap-2">
+<button onClick={(e) => {e.stopPropagation(); editarBox(b)}} className="text-purple-400 hover:text-purple-300 text-sm font-medium">Editar</button>
+<button onClick={(e) => {e.stopPropagation(); borrarBox(b.id)}} className="text-red-400 hover:text-red-300 text-sm font-medium">Eliminar</button>
+</div>
+</div>
+)}
+</div>
+);
+})}
+</div>
+</>
+)}
+
+{tab === 'pedidos' && (
+<>
+<div className="bg-slate-800/50 backdrop-blur-sm rounded-lg shadow-xl border-slate-700 p-4 md:p-6 mb-6">
+
+{!mostrarFormPedido && (
+<button
+onClick={() => {
+setMostrarFormPedido(true);
+setItemsPedido([{ itemId: platos[0]?.id || boxes[0]?.id || 0, tipo: platos[0]? 'plato' : 'box', cantidad: 1 }]);
+}}
+className="w-full bg-teal-600 hover:bg-teal-700 text-white px-6 py-4 rounded-lg font-semibold flex items-center justify-center gap-2 transition disabled:opacity-50"
+disabled={platos.length === 0 && boxes.length === 0}
+>
+➕ Nuevo Pedido
+</button>
+)}
+
+{mostrarFormPedido && (
+<>
+<div className="flex justify-between items-center mb-4 md:mb-6">
+<h2 className="text-lg md:text-xl font-semibold text-white">Nuevo Pedido</h2>
+<button
+onClick={() => {
+setMostrarFormPedido(false);
+setCliente("");
+setDireccion("");
+setTelefono("");
+setItemsPedido([]);
+}}
+className="text-slate-400 hover:text-white text-sm px-3 py-1"
+>
+✕ Cerrar
+</button>
+</div>
+
+{platos.length === 0 && boxes.length === 0 && <div className="bg-amber-900/30 border-amber-700 rounded-lg p-4 mb-4"><p className="text-amber-300 text-sm">Debe cargar platos o boxes antes de crear pedidos</p></div>}
+
+<div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
+<input placeholder="Nombre del cliente" value={cliente} onChange={e => setCliente(e.target.value)} className="bg-slate-900 border-slate-600 p-3 rounded-lg outline-none text-white placeholder-slate-500 focus:border-teal-500" />
+<input placeholder="Dirección de entrega" value={direccion} onChange={e => setDireccion(e.target.value)} className="bg-slate-900 border-slate-600 p-3 rounded-lg outline-none text-white placeholder-slate-500 focus:border-teal-500" />
+<input placeholder="Teléfono" value={telefono} onChange={e => setTelefono(e.target.value)} className="bg-slate-900 border-slate-600 p-3 rounded-lg outline-none text-white placeholder-slate-500 focus:border-teal-500" />
+</div>
+
+<div className="space-y-3 mb-5">
+{itemsPedido.map((item, i) => (
+<div key={i} className="grid grid-cols-1 md:grid-cols-13 gap-2 items-start md:items-center">
+<select value={`${item.tipo}-${item.itemId}`} onChange={e => actualizarItemPedido(i, "itemId", e.target.value)} className="bg-slate-900 border-slate-600 p-3 md:col-span-9 rounded-lg outline-none text-white focus:border-teal-500">
+{platos.map(plato => {
+const costo = calcularCostoPlato(plato.id);
+const costoPorcionCalc = costoPorcion(costo, plato.porciones || 1);
+const unidadesVenta = plato.unidadesPorVenta || 1;
+const costoVenta = costoPorcionCalc * unidadesVenta;
+const precio = precioVenta(costoVenta, plato.ganancia);
+return <option key={`plato-${plato.id}`} value={`plato-${plato.id}`}>🥖 {plato.nombre} - ${precio.toFixed(0)}</option>;
+})}
+{boxes.map(box => {
+const costo = calcularCostoBox(box.id);
+const unidadesVenta = box.unidadesPorVenta || 1;
+const costoVenta = costo * unidadesVenta;
+const precio = precioVenta(costoVenta, box.ganancia);
+return <option key={`box-${box.id}`} value={`box-${box.id}`}>📦 {box.nombre} - ${precio.toFixed(0)}</option>;
+})}
+</select>
+<input type="number" min="1" value={item.cantidad} onChange={e => actualizarItemPedido(i, "cantidad", e.target.value)} className="bg-slate-900 border-slate-600 p-3 md:col-span-3 rounded-lg outline-none text-white focus:border-teal-500" />
+<button onClick={() => borrarItemPedido(i)} disabled={itemsPedido.length === 1} className="text-red-400 hover:text-red-300 text-sm disabled:opacity-30 mt-2 md:mt-0">X</button>
+</div>
+))}
+</div>
+
+<button onClick={agregarItemPedido} className="text-teal-400 font-medium mb-5 hover:text-teal-300">+ Agregar item</button>
+
+<div className="bg-slate-900/50 rounded-lg p-4 mb-5 border-slate-700">
+<p className="text-slate-400 text-sm mb-1">Total del pedido:</p>
+<p className="text-xl md:text-2xl font-bold text-white">
+${itemsPedido.reduce((sum, item) => {
+if (item.tipo === 'plato') {
+const plato = platos.find(p => p.id === item.itemId);
+if (!plato) return sum;
+const costo = calcularCostoPlato(plato.id);
+const costoPorcionCalc = costoPorcion(costo, plato.porciones || 1);
+const unidadesVenta = plato.unidadesPorVenta || 1;
+const costoVenta = costoPorcionCalc * unidadesVenta;
+const precio = precioVenta(costoVenta, plato.ganancia);
+return sum + precio * item.cantidad;
+} else {
+const box = boxes.find(b => b.id === item.itemId);
+if (!box) return sum;
+const costo = calcularCostoBox(box.id);
+const unidadesVenta = box.unidadesPorVenta || 1;
+const costoVenta = costo * unidadesVenta;
+const precio = precioVenta(costoVenta, box.ganancia);
+return sum + precio * item.cantidad;
+}
+}, 0).toFixed(0)}
+</p>
+</div>
+
+<button onClick={crearPedido} className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded-lg font-medium disabled:opacity-50 w-full transition" disabled={!cliente ||!direccion ||!telefono}>
+Confirmar Pedido
+</button>
+</>
+)}
+</div>
+
+<div className="space-y-4">
+<h2 className="text-lg md:text-xl font-semibold text-white mb-4">Historial de Pedidos</h2>
+{pedidos.length === 0 && <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg shadow-xl border-slate-700 p-8 md:p-12 text-center"><p className="text-slate-400">No hay pedidos registrados</p></div>}
+
+{pedidos.map((ped) => {
+const abierto = pedidoAbierto === ped.id;
+const gananciaPed = ped.total - ped.costoTotal;
+
+return (
+<div key={ped.id} className="bg-slate-800/50 backdrop-blur-sm rounded-lg shadow-xl border-slate-700 overflow-hidden">
+<button onClick={() => setPedidoAbierto(abierto? null : ped.id)} className="w-full p-4 md:p-6 flex justify-between items-center hover:bg-slate-700/30 transition">
+<div className="text-left">
+<h3 className="font-semibold text-white">{ped.cliente}</h3>
+<p className="text-slate-400 text-xs md:text-sm mb-3">{ped.direccion} - {ped.telefono}</p>
+<p className="text-teal-400 font-bold text-lg">${ped.total.toFixed(0)}</p>
+</div>
+<span className={`text-slate-400 transition-transform ${abierto? 'rotate-180' : ''}`}>▼</span>
+</button>
+
+{abierto && (
+<div className="px-4 md:px-6 pb-4 md:pb-6">
+<div className="space-y-2 mb-4 pt-4 border-t border-slate-700">
+{ped.items.map((item, idx) => (
+<div key={idx} className="bg-slate-900/50 rounded p-3 border-slate-700">
+<div className="flex justify-between mb-2">
+<span className="text-white font-medium">{item.tipo === 'box'? '📦' : '🥖'} {item.nombreItem} x{item.cantidad}</span>
+<span className="text-teal-400 font-bold">${(item.precioVentaUnitario * item.cantidad).toFixed(0)}</span>
+</div>
+<div className="space-y-1 ml-2">
+{item.detalle.map((det, i) => (
+<p key={i} className="text-slate-400 text-xs">{det.nombre}: {det.cantidad.toFixed(2)}{det.unidad}</p>
+))}
+</div>
+</div>
+))}
+</div>
+<div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-slate-700 mb-4">
+<div><p className="text-slate-400 text-sm">Costo</p><p className="text-base md:text-lg font-semibold text-white">${ped.costoTotal.toFixed(2)}</p></div>
+<div><p className="text-slate-400 text-sm">Ganancia</p><p className="text-base md:text-lg font-semibold text-emerald-400">+${gananciaPed.toFixed(2)}</p></div>
+<div><p className="text-slate-400 text-sm">Total Venta</p><p className="text-base md:text-lg font-bold text-teal-400">${ped.total.toFixed(0)}</p></div>
+</div>
+<button onClick={(e) => {e.stopPropagation(); borrarPedido(ped.id)}} className="text-red-400 hover:text-red-300 text-sm font-medium">Eliminar pedido</button>
+</div>
+)}
+</div>
+);
+})}
+</div>
+</>
+)}
+
+{tab === 'estadisticas' && (
+<div className="bg-slate-800/50 backdrop-blur-sm rounded-lg shadow-xl border-slate-700 p-4 md:p-6">
+<h2 className="text-lg md:text-xl font-semibold text-white mb-6">Estadísticas</h2>
+<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+<div className="bg-slate-900/50 rounded-lg p-4 border-slate-700">
+<p className="text-slate-400 text-sm">Total Vendido</p>
+<p className="text-2xl font-bold text-white">${pedidos.reduce((sum, p) => sum + p.total, 0).toFixed(0)}</p>
+</div>
+<div className="bg-slate-900/50 rounded-lg p-4 border-slate-700">
+<p className="text-slate-400 text-sm">Costo Total</p>
+<p className="text-2xl font-bold text-white">${costoTotal.toFixed(2)}</p>
+</div>
+<div className="bg-slate-900/50 rounded-lg p-4 border-slate-700">
+<p className="text-slate-400 text-sm">Ganancia Total</p>
+<p className="text-2xl font-bold text-emerald-400">${gananciaTotal.toFixed(2)}</p>
+</div>
+</div>
+</div>
+)}
+</div>
+</main>
+</>
+);
 }
