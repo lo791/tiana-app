@@ -2,14 +2,25 @@
 import { useState, useEffect, useRef } from "react";
 import Head from "next/head";
 
+type CategoriaPlato = 'POSTRES' | 'PANADERIA DULCE' | 'PANADERIA SALADA' | 'SANDWICH' | 'DELICATESES';
+
 type IngredienteBase = { id: number; nombre: string; precioUnitario: number; unidad: string };
-type IngredientePlato = { ingredienteId: number; cantidad: number }; // SOLO base
-type Plato = { id: number; nombre: string; foto: string; ganancia: number; ingredientes: IngredientePlato[]; porciones?: number; unidadesPorVenta?: number };
+type IngredientePlato = { ingredienteId: number; cantidad: number };
+type Plato = {
+  id: number;
+  nombre: string;
+  foto: string;
+  ganancia: number;
+  ingredientes: IngredientePlato[];
+  porciones?: number;
+  unidadesPorVenta?: number;
+  categoria: CategoriaPlato; // NUEVO
+};
 
-type BoxItem = { platoId: number; cantidad: number }; // NUEVO: plato + cantidad
-type Box = { id: number; nombre: string; foto: string; ganancia: number; items: BoxItem[]; unidadesPorVenta?: number }; // NUEVO
+type BoxItem = { platoId: number; cantidad: number };
+type Box = { id: number; nombre: string; foto: string; ganancia: number; items: BoxItem[]; unidadesPorVenta?: number };
 
-type ItemPedidoForm = { itemId: number; tipo: 'plato' | 'box'; cantidad: number }; // NUEVO: tipo
+type ItemPedidoForm = { itemId: number; tipo: 'plato' | 'box'; cantidad: number };
 type ItemPedidoSnapshot = {
   itemId: number;
   tipo: 'plato' | 'box';
@@ -19,7 +30,7 @@ type ItemPedidoSnapshot = {
   costoUnitario: number;
   precioVentaUnitario: number;
   ganancia: number;
-  detalle: { nombre: string; cantidad: number; unidad: string }[]; // ingredientes o platos que contiene
+  detalle: { nombre: string; cantidad: number; unidad: string }[];
 };
 type Pedido = {
   id: number;
@@ -32,9 +43,11 @@ type Pedido = {
   costoTotal: number;
 };
 
+const CATEGORIAS: CategoriaPlato[] = ['POSTRES', 'PANADERIA DULCE', 'PANADERIA SALADA', 'SANDWICH', 'DELICATESES'];
+
 export default function Home() {
-  const [tab, setTab] = useState<'ingredientes' | 'platos' | 'boxes' | 'pedidos' | 'estadisticas'>('platos'); // NUEVO: boxes
-  const [subTabPlatos, setSubTabPlatos] = useState<'salados' | 'dulces'>('salados');
+  const [tab, setTab] = useState<'ingredientes' | 'platos' | 'boxes' | 'pedidos' | 'estadisticas'>('platos');
+  const [filtroCategoria, setFiltroCategoria] = useState<CategoriaPlato | 'TODAS'>('TODAS'); // NUEVO
 
   const [ingredientesBase, setIngredientesBase] = useState<IngredienteBase[]>(() => {
     if (typeof window === 'undefined') return [];
@@ -48,7 +61,7 @@ export default function Home() {
     return guardado? JSON.parse(guardado) : [];
   });
 
-  const [boxes, setBoxes] = useState<Box[]>(() => { // NUEVO
+  const [boxes, setBoxes] = useState<Box[]>(() => {
     if (typeof window === 'undefined') return [];
     const guardado = localStorage.getItem('boxes');
     return guardado? JSON.parse(guardado) : [];
@@ -70,6 +83,7 @@ export default function Home() {
   const [nombrePlato, setNombrePlato] = useState("");
   const [fotoPlato, setFotoPlato] = useState("");
   const [ganancia, setGanancia] = useState(50);
+  const [categoriaPlato, setCategoriaPlato] = useState<CategoriaPlato>('SANDWICH'); // NUEVO
   const [ingredientesPlato, setIngredientesPlato] = useState<IngredientePlato[]>([]);
   const [busqueda, setBusqueda] = useState("");
   const [porciones, setPorciones] = useState(1);
@@ -77,7 +91,6 @@ export default function Home() {
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // NUEVO: estados para boxes
   const [nombreBox, setNombreBox] = useState("");
   const [fotoBox, setFotoBox] = useState("");
   const [gananciaBox, setGananciaBox] = useState(50);
@@ -93,7 +106,7 @@ export default function Home() {
   const [itemsPedido, setItemsPedido] = useState<ItemPedidoForm[]>([]);
 
   const [platoAbierto, setPlatoAbierto] = useState<number | null>(null);
-  const [boxAbierto, setBoxAbierto] = useState<number | null>(null); // NUEVO
+  const [boxAbierto, setBoxAbierto] = useState<number | null>(null);
   const [pedidoAbierto, setPedidoAbierto] = useState<number | null>(null);
 
   useEffect(() => {
@@ -105,7 +118,7 @@ export default function Home() {
   }, [platos]);
 
   useEffect(() => {
-    localStorage.setItem('boxes', JSON.stringify(boxes)); // NUEVO
+    localStorage.setItem('boxes', JSON.stringify(boxes));
   }, [boxes]);
 
   useEffect(() => {
@@ -122,7 +135,7 @@ export default function Home() {
     reader.readAsDataURL(archivo);
   };
 
-  const manejarSubidaImagenBox = (e: React.ChangeEvent<HTMLInputElement>) => { // NUEVO
+  const manejarSubidaImagenBox = (e: React.ChangeEvent<HTMLInputElement>) => {
     const archivo = e.target.files?.[0];
     if (!archivo) return;
     const reader = new FileReader();
@@ -149,7 +162,7 @@ export default function Home() {
     setEditandoPrecioId(null);
   };
 
-  const calcularCostoPlato = (platoId: number): number => { // SIMPLIFICADO: solo base
+  const calcularCostoPlato = (platoId: number): number => {
     const plato = platos.find(p => p.id === platoId);
     if (!plato) return 0;
     return plato.ingredientes.reduce((sum, ing) => {
@@ -158,7 +171,7 @@ export default function Home() {
     }, 0);
   };
 
-  const calcularCostoBox = (boxId?: number, items?: BoxItem[]): number => { // NUEVO
+  const calcularCostoBox = (boxId?: number, items?: BoxItem[]): number => {
     const itemsBox = items || (boxId? boxes.find(b => b.id === boxId)?.items || [] : []);
     return itemsBox.reduce((sum, item) => {
       const costoPlato = calcularCostoPlato(item.platoId);
@@ -205,14 +218,15 @@ export default function Home() {
     if (!nombrePlato || ingredientesPlato.length === 0) return;
     const unidadesVentaFinal = unidadesPorVenta || 1;
     if (editandoId) {
-      setPlatos(platos.map(p => p.id === editandoId? {...p, nombre: nombrePlato, foto: fotoPlato, ganancia, ingredientes: ingredientesPlato, porciones, unidadesPorVenta: unidadesVentaFinal } : p));
+      setPlatos(platos.map(p => p.id === editandoId? {...p, nombre: nombrePlato, foto: fotoPlato, ganancia, categoria: categoriaPlato, ingredientes: ingredientesPlato, porciones, unidadesPorVenta: unidadesVentaFinal } : p));
       setEditandoId(null);
     } else {
-      setPlatos([...platos, { id: Date.now(), nombre: nombrePlato, foto: fotoPlato, ganancia, ingredientes: ingredientesPlato, porciones, unidadesPorVenta: unidadesVentaFinal }]);
+      setPlatos([...platos, { id: Date.now(), nombre: nombrePlato, foto: fotoPlato, ganancia, categoria: categoriaPlato, ingredientes: ingredientesPlato, porciones, unidadesPorVenta: unidadesVentaFinal }]);
     }
     setNombrePlato("");
     setFotoPlato("");
     setGanancia(50);
+    setCategoriaPlato('SANDWICH');
     setPorciones(1);
     setUnidadesPorVenta(1);
     setIngredientesPlato([]);
@@ -224,20 +238,18 @@ export default function Home() {
     setNombrePlato(plato.nombre);
     setFotoPlato(plato.foto);
     setGanancia(plato.ganancia);
+    setCategoriaPlato(plato.categoria); // NUEVO
     setIngredientesPlato(plato.ingredientes);
     setPorciones(plato.porciones || 1);
     setUnidadesPorVenta(plato.unidadesPorVenta || 1);
     setEditandoId(plato.id);
     setBusqueda("");
-    const esDulce = esPlatoDulce(plato.nombre);
-    setSubTabPlatos(esDulce? 'dulces' : 'salados');
     setTab('platos');
     window.scrollTo({top: 0, behavior: 'smooth'});
   };
 
   const borrarPlato = (id: number) => setPlatos(platos.filter(p => p.id!== id));
 
-  // NUEVO: funciones para boxes
   const agregarPlatoABox = (id: number) => setItemsBox([...itemsBox, { platoId: id, cantidad: 1 }]);
 
   const actualizarItemBox = (i: number, cantidad: number) => {
@@ -415,15 +427,11 @@ export default function Home() {
     return { cantidad: ingPlato.cantidad, unidad: ingBase.unidad };
   };
 
-  const esPlatoDulce = (nombre: string) => {
-    const nombreLower = nombre.toLowerCase();
-    const palabrasDulces = ['torta', 'brownie', 'chocotorta', 'alfajor', 'cheesecake', 'mousse', 'postre', 'budin', 'cupcake', 'lemon', 'chocolate'];
-    return palabrasDulces.some(p => nombreLower.includes(p));
-  };
+  const esCategoriaDulce = (cat: CategoriaPlato) => cat === 'POSTRES' || cat === 'PANADERIA DULCE'; // NUEVO
 
   const platosFiltrados = platos.filter(p => {
-    const esDulce = esPlatoDulce(p.nombre);
-    return subTabPlatos === 'dulces'? esDulce :!esDulce;
+    if (filtroCategoria === 'TODAS') return true;
+    return p.categoria === filtroCategoria;
   });
 
   const ingredientesBaseFiltrados = ingredientesBase.filter(ing =>
@@ -431,7 +439,7 @@ export default function Home() {
   );
 
   const ingredientesSugeridos = busqueda
-  ? ingredientesBase.filter(ing => ing.nombre.toLowerCase().includes(busqueda.toLowerCase())).slice(0, 8)
+ ? ingredientesBase.filter(ing => ing.nombre.toLowerCase().includes(busqueda.toLowerCase())).slice(0, 8)
     : [];
 
   const totalPlato = (platoId: number) => calcularCostoPlato(platoId);
@@ -540,6 +548,13 @@ export default function Home() {
                 <input placeholder="Nombre del plato" value={nombrePlato} onChange={e => setNombrePlato(e.target.value)} className="bg-slate-900 border-slate-600 p-3 w-full mb-4 rounded-lg outline-none text-white placeholder-slate-500 focus:border-teal-500" disabled={ingredientesBase.length === 0} />
 
                 <div className="mb-4">
+                  <label className="text-slate-300 font-medium mb-2 block">Categoría del plato</label>
+                  <select value={categoriaPlato} onChange={e => setCategoriaPlato(e.target.value as CategoriaPlato)} className="bg-slate-900 border-slate-600 p-3 w-full rounded-lg outline-none text-white focus:border-teal-500" disabled={ingredientesBase.length === 0}>
+                    {CATEGORIAS.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                  </select>
+                </div>
+
+                <div className="mb-4">
                   <label className="text-slate-300 font-medium mb-2 block">Foto del plato</label>
                   <input
                     type="file"
@@ -622,7 +637,7 @@ export default function Home() {
                 {ingredientesPlato.length > 0 && porciones > 0 && (() => {
                   const costoTotal = totalPlato(editandoId || 0);
                   const costoPorc = costoPorcion(costoTotal, porciones);
-                 const costoVenta = costoPorc * (unidadesPorVenta || 1);
+                  const costoVenta = costoPorc * (unidadesPorVenta || 1);
                   const ventaPorc = precioVenta(costoVenta, ganancia);
                   return (
                     <div className="bg-teal-900/30 border-teal-700 rounded-lg p-4 mb-5 space-y-1">
@@ -643,13 +658,15 @@ export default function Home() {
               </div>
 
               <div className="space-y-4">
-                <div className="flex gap-2 mb-4 border-b border-slate-700">
-                  <button onClick={() => setSubTabPlatos('salados')} className={`px-4 py-2 text-sm font-medium transition border-b-2 ${subTabPlatos === 'salados'? 'border-teal-500 text-teal-400' : 'border-transparent text-slate-400 hover:text-white'}`}>Salados</button>
-                  <button onClick={() => setSubTabPlatos('dulces')} className={`px-4 py-2 text-sm font-medium transition border-b-2 ${subTabPlatos === 'dulces'? 'border-teal-500 text-teal-400' : 'border-transparent text-slate-400 hover:text-white'}`}>Dulces</button>
+                <div className="flex gap-2 mb-4 border-b border-slate-700 overflow-x-auto">
+                  <button onClick={() => setFiltroCategoria('TODAS')} className={`px-4 py-2 text-sm font-medium transition border-b-2 whitespace-nowrap ${filtroCategoria === 'TODAS'? 'border-teal-500 text-teal-400' : 'border-transparent text-slate-400 hover:text-white'}`}>Todas</button>
+                  {CATEGORIAS.map(cat => (
+                    <button key={cat} onClick={() => setFiltroCategoria(cat)} className={`px-4 py-2 text-sm font-medium transition border-b-2 whitespace-nowrap ${filtroCategoria === cat? 'border-teal-500 text-teal-400' : 'border-transparent text-slate-400 hover:text-white'}`}>{cat}</button>
+                  ))}
                 </div>
 
-                <h2 className="text-lg md:text-xl font-semibold text-white mb-4">Listado de Platos - {subTabPlatos === 'salados'? 'Salados' : 'Dulces'}</h2>
-                {platosFiltrados.length === 0 && <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg shadow-xl border-slate-700 p-8 md:p-12 text-center"><p className="text-slate-400">No hay platos {subTabPlatos} cargados</p></div>}
+                <h2 className="text-lg md:text-xl font-semibold text-white mb-4">Listado de Platos - {filtroCategoria === 'TODAS'? 'Todos' : filtroCategoria}</h2>
+                {platosFiltrados.length === 0 && <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg shadow-xl border-slate-700 p-8 md:p-12 text-center"><p className="text-slate-400">No hay platos en esta categoría</p></div>}
 
                 {platosFiltrados.map((p) => {
                   const costo = calcularCostoPlato(p.id);
@@ -658,6 +675,7 @@ export default function Home() {
                   const costoVenta = costoPorcionCalc * unidadesVenta;
                   const venta = precioVenta(costoVenta, p.ganancia);
                   const abierto = platoAbierto === p.id;
+                  const esDulce = esCategoriaDulce(p.categoria);
 
                   return (
                     <div key={p.id} className="bg-slate-800/50 backdrop-blur-sm rounded-lg shadow-xl border-slate-700 overflow-hidden">
@@ -668,7 +686,12 @@ export default function Home() {
                         <div className="flex gap-3 md:gap-4 items-center text-left">
                           {p.foto && <img src={p.foto} alt={p.nombre} className="w-12 h-12 md:w-16 md:h-16 rounded-lg object-cover" />}
                           <div>
-                            <h3 className="font-semibold text-base md:text-lg text-white">{p.nombre}</h3>
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3 className="font-semibold text-base md:text-lg text-white">{p.nombre}</h3>
+                              <span className={`text-xs px-2 py-0.5 rounded ${esDulce? 'bg-pink-900/50 text-pink-300' : 'bg-blue-900/50 text-blue-300'}`}>
+                                {p.categoria}
+                              </span>
+                            </div>
                             <div className="flex flex-col md:flex-row gap-1 md:gap-4 mt-1 text-xs md:text-sm">
                               <span className="text-slate-400">Costo porción: <span className="text-emerald-400">${costoPorcionCalc.toFixed(2)}</span></span>
                               <span className="text-slate-400">Venta x{unidadesVenta}: <span className="text-teal-400 font-bold">${venta.toFixed(0)}</span></span>
